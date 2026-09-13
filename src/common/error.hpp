@@ -1,6 +1,5 @@
 #pragma once
 
-#include "ostream"
 #include <stdexcept>
 
 template <typename... Args>

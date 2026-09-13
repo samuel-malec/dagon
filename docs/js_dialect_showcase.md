@@ -5,14 +5,14 @@ Cthulhu IR (`.ct`) that `js2ct` generates for them.
 
 Each example is a real, checked-in, `assert`-verified fixture. Source pairs:
 
-| JS source | Demonstrates |
-|---|---|
-| [reassign.js](../test/js2ct/e2e/reassign.js) | reassigning an existing variable to a new value |
-| [field_mutation.js](../test/js2ct/e2e/field_mutation.js) | mutating a field on an object *without* reassigning the variable that holds it |
-| [point.js](../test/js2ct/e2e/point.js) | object construction, string-keyed fields, a function call |
-| [box.js](../test/js2ct/e2e/box.js) | an array nested inside an object |
-| [sum_array.js](../test/js2ct/e2e/sum_array.js) | array iteration via a `while` loop |
-| [counter.js](../test/js2ct/e2e/counter.js) | a loop that mutates an object field, across two function calls, plus a reassigned variable |
+| JS source                                                | Demonstrates                                                                               |
+|----------------------------------------------------------|--------------------------------------------------------------------------------------------|
+| [reassign.js](../test/js2ct/e2e/reassign.js)             | reassigning an existing variable to a new value                                            |
+| [field_mutation.js](../test/js2ct/e2e/field_mutation.js) | mutating a field on an object *without* reassigning the variable that holds it             |
+| [point.js](../test/js2ct/e2e/point.js)                   | object construction, string-keyed fields, a function call                                  |
+| [box.js](../test/js2ct/e2e/box.js)                       | an array nested inside an object                                                           |
+| [sum_array.js](../test/js2ct/e2e/sum_array.js)           | array iteration via a `while` loop                                                         |
+| [counter.js](../test/js2ct/e2e/counter.js)               | a loop that mutates an object field, across two function calls, plus a reassigned variable |
 
 Run them yourself:
 
@@ -71,33 +71,6 @@ structure run
 )
 ```
 
-`cthu` is linear: every value is consumed exactly once, so there's no
-mutable "variable slot" the way QuickJS bytecode has locals — a JS
-binding is just a name attached to a value, and that name moves forward
-through the instruction stream. A *fresh* `let x = 1;` is trivial —
-`cons_1 → %0` and `%0` simply **is** `x` from here on, nothing to
-reconcile with. *Re*assigning an existing binding (`x = x + 1;`) is the
-interesting case: the RHS needs to read the old `x`, and the assignment
-needs to produce a new value under the same name — but a linear value can
-only be consumed once, so `x` (`%0`) is `dup`'d into two copies first:
-one (`%1`) gets consumed normally as `add`'s operand; the other (`%2`) is
-reserved as the write-back target. `drop → %2` then `copy %4 → %2` is the
-reassignment itself — explicitly release the old value held under that
-name, then claim the new one under it. This `drop`-then-`copy` pair (not
-`move`, which only ever happens once, at a name's birth) is exactly what
-distinguishes *re*assigning a binding from introducing a fresh one in
-this IR — see `PLAN.md` P6.9.
-
-The next line, `dup %2 → %5 %6`, is there because a JS assignment is
-*also an expression* — `x = x + 1` evaluates to the assigned value, here
-just discarded since this one's a bare statement, but the compiler can't
-assume that in general (`let y = (x = x + 1);` needs it). That returned
-value and `x`'s own name going forward both start out as the same
-freshly-written slot (`%2`), so they're split the same way any read of a
-variable already is: `%5` becomes the assignment-expression's disposable
-result, `%6` becomes `x`'s new live name — without this split, something
-that consumed the assignment's result directly.
-
 ## 2. Mutating a field without reassigning the variable — `field_mutation`
 
 ```js
@@ -147,27 +120,6 @@ structure run
     )
 )
 ```
-
-Contrast this with `reassign` above: **there's no `drop`/`copy` pair
-anywhere.** `obj` the *binding* is never reassigned by the JS source —
-only a field on it is. But `obj` still gets a fresh IR name after every
-`set`: `%0` → `%5` → `%15`. That's not the compiler treating `obj.x =
-...` like a variable reassignment — it falls straight out of `set`'s own
-signature, `set :: obj × key × val → obj` (linear, like everything else
-here): you feed `set` your only reference to the object, and it hands
-back "the object, now mutated" as your new reference. The compiler just
-updates its internal bookkeeping (the HIR-level environment entry for
-`obj`) so the *next* read uses the right name — no explicit release
-needed, because the old name (`%0`, then `%5`) was fully consumed by
-being fed into `set`, not left dangling the way an orphaned value would
-be. And it's not fiction: `dup` on a `jsvalue` is a QuickJS refcount
-increment, not a deep copy (same reason `counter` below survives a full
-round trip through loop mutation, unchanged in identity) — `%0`/`%5`/
-`%15` are three IR *names* for what is, at runtime, the same underlying
-heap object the whole time. One honest wrinkle visible here: `cons_str
-"x"` appears twice (`%1`, then again at `%6`/`%9`) even though it's the
-same literal both times — `js2ct` doesn't deduplicate repeated string-key
-constants. Verbose, not wrong.
 
 ## 3. Object construction + a function call — `point`
 
@@ -238,21 +190,6 @@ structure run
     )
 )
 ```
-
-`makePoint` builds an object one `set` at a time (`cons_obj` starts empty,
-each `set` returns the object again so the next field can chain off it),
-then `move`s it out — `%0`/`%1` are `x`/`y`, each `dup`'d before being fed
-to `set` since a parameter might be read again (here it isn't, hence the
-trailing `drop`s cleaning up the unused second copies). `structure run`
-(the JS function) calls `makePoint` the same way any named JS call lowers
-(`<callee> run → f_ref` then `f_j2_j call f_ref args… → result`, `f_j2_j`
-naming a 2-argument-1-result call shape — a pure naming convention, see
-below), then reads `p.x` and `p.y` off the same object, which needs a
-`dup` first: `get` consumes its object operand (`get :: obj × key →
-value`, matching what the underlying `get_array_el` opcode actually
-does), so getting a second field needs a second copy. `structure main` is
-the compiler's own auto-generated script entry — it exists in every
-`js2ct` program and just calls the JS-level `run()`.
 
 ## 4. An array nested inside an object — `box`
 
@@ -332,16 +269,6 @@ structure run
     )
 )
 ```
-
-The point of this one: `get`/`set`/`cons_obj`/`cons_arr` don't care what's
-*inside* the value they're handling. `makeBox` builds `items` as an array
-with integer keys (`cons_arr` + `set 0`/`set 1`) and then stores that
-whole array under the string key `"items"` on a plain object (`set %0
-"items" items`) — same two ops, no special-casing either way, because
-`jsvalue` is a uniform runtime-tagged representation regardless of what's
-stored where. `f__j` is the 0-argument call shape (`makeBox` takes no
-parameters); `structure main` is again just the auto-generated driver
-calling `run()`.
 
 ## 5. Array iteration — `sum_array`
 
@@ -487,32 +414,6 @@ structure run
     )
 )
 ```
-
-`while` lowers as self-recursion, not a jump: `loop1` re-checks the
-condition on every call (initial or recursive) and dispatches between
-`loopbody2` ("keep looping" — one iteration, then tail-calls `sumArray
-loop1` again by name) and `loopexit3` ("loop is done") via the same
-`opt`/`join`/`call` combinator `fib.ct` uses for plain recursion.
-`loopframe4` is the `join` target: it calls both `opt`'d branches (one is
-always a structural no-op, "bot") and merges their results — deliberate,
-so abstract interpretation over this IR always sees both sides of every
-branch, loop included.
-
-**Why `packed` and not four named outputs.** `arr`/`n`/`i`/`total` (shown
-as `%3`/`%2`/`%1`/`%0` here — the compiler orders a loop's live bindings
-last-declared-first) are all live at loop entry, so all four have to
-travel through every `call`/`opt`/`join` in the loop, in and out. A
-QuickJS function can only ever `return` one value — there's no bytecode
-for "return 4 things" — so instead of declaring four outputs, every
-closure in the loop packs its four live values into one array before
-returning (`loopexit3`'s `cons_arr`/`set` chain), and unpacks it again
-wherever an individual value is needed next (`run`'s trailing `dup`/`get`
-chain). `n`/`i`/`arr` are dead once the loop exits, so `run` just `drop`s
-them after unpacking and keeps `total` (`%25`). This packing is the fix
-for a real bug found while building an earlier, hand-written version of
-this same example (`PLAN.md`'s P2.5): an earlier codegen path declared
-separate outputs directly on the call and silently wrote only the first
-one — exactly the kind of bug a single passing run won't reveal.
 
 ## 6. A loop that mutates an object field — `counter`
 
@@ -662,15 +563,3 @@ structure run
     )
 )
 ```
-
-Same loop shape as `sum_array` (three live bindings this time — `c`,
-`n`, `i` — so `f_j3_j`, packing three values instead of four), but the
-payload being threaded is an object reference, not a number, and
-`loopbody2` mutates it via read-modify-write (`get "count"` → `add 1` →
-`set "count"`) on every iteration rather than just reading it.
-`structure run` (the JS function `run()`, the whole program's driver)
-chains two calls — `makeCounter` then `incrementBy` — and its own
-`c = incrementBy(c, 5);` is `qjs_val_copy` again, visible as `jsvalue
-drop → %2` / `jsvalue copy %4 → %2` right after the call: `c` is an
-*existing* binding being reassigned to the call's result, not a fresh
-`let`. 
