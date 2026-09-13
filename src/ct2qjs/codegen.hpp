@@ -64,10 +64,18 @@ namespace qthu::ct2qjs {
         }
 
         uint32_t find_main_id() const {
-            for (const auto &fn: ir.fns)
-                if (ir.st.name_of(fn.key.stru) == "main" && ir.st.name_of(fn.key.op) == "run")
+            // "main" is the entry-point convention every hand-written .ct
+            // fixture uses (fib.ct etc.); "__toplevel__" is what js2ct now
+            // names its own auto-generated script driver, specifically so a
+            // JS function literally named `main` no longer collides with
+            // it. Accept either here rather than picking one, so neither
+            // convention breaks.
+            for (const auto &fn: ir.fns) {
+                auto stru_name = ir.st.name_of(fn.key.stru);
+                if ((stru_name == "main" || stru_name == "__toplevel__") && ir.st.name_of(fn.key.op) == "run")
                     return fn.id;
-            throw std::runtime_error("missing main::run function");
+            }
+            throw std::runtime_error("missing main::run or __toplevel__::run function");
         }
 
         void ensure_patch(uint32_t idx) {

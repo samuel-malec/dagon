@@ -266,18 +266,24 @@ namespace qthu::js2ct::sema {
                                declare_var(vd, curr_scope);
                            },
                            [ & ](ast::fn_declaration &fd) {
-                               // "main" is reserved: the top-level script itself always
-                               // compiles to `structure main` (linear2cthu.hpp's lowerer,
-                               // matching cthuc's hardcoded find_main_id() lookup for
-                               // `structure main :: run`) -- a JS function also named `main`
-                               // would collide with it (two `structure main` blocks in the
-                               // emitted .ct, which cthuc's reader rejects as "main already
-                               // defined", a confusing error that doesn't point at the real
-                               // cause). Reject it here instead, with a clear explanation.
-                               if (fd.name == "main")
-                                   error(s.loc, "'main' is a reserved function name -- the top-level script itself "
-                                         "compiles to the structure named 'main', so a function can't be named "
-                                         "that too. Please rename this function.");
+                               // "__toplevel__" is reserved: the top-level script itself
+                               // always compiles to `structure __toplevel__`
+                               // (linear2cthu.hpp's lowerer) -- a JS function also named
+                               // `__toplevel__` would collide with it (two structures of
+                               // that name in the emitted .ct, which cthuc's reader
+                               // rejects as "already defined", a confusing error that
+                               // doesn't point at the real cause). Reject it here
+                               // instead, with a clear explanation. `main` itself is
+                               // *not* reserved -- that was the original, more easily
+                               // hit collision (the script used to compile to `structure
+                               // main`); renaming the auto-generated structure to
+                               // something no JS identifier can spell (PLAN.md P12)
+                               // closed that gap at the root instead of only rejecting
+                               // it after the fact.
+                               if (fd.name == "__toplevel__")
+                                   error(s.loc, "'__toplevel__' is a reserved function name -- the top-level "
+                                         "script itself compiles to the structure named '__toplevel__', so a "
+                                         "function can't be named that too. Please rename this function.");
 
                                scope_id fn_scope = declare_scope(scope::kind::function, curr_scope);
                                function_id fid{.value = static_cast<uint32_t>(result.functions.size())};

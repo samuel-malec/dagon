@@ -36,7 +36,11 @@ namespace qthu::ct2qjs {
         if (peek_any(U"\t\r "))
             return shift(), drop();
 
-        if (auto c = peek(); c <= 255 && (std::isalpha(c) || c == '%'))
+        // '_' is already accepted mid-identifier (compatible(), above) --
+        // also accept it as the *first* character, matching every other
+        // C-like identifier rule. Needed for js2ct's __toplevel__ structure
+        // name (PLAN.md P12), and a reasonable general extension regardless.
+        if (auto c = peek(); c <= 255 && (std::isalpha(c) || c == '%' || c == '_'))
             return start(cat::ident);
 
         if (peek() == '"') {

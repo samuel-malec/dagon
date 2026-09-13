@@ -180,7 +180,7 @@ namespace qthu::ct2qjs {
         }
 
         sv_t token_data() const {
-            return {data.begin(), size_t(ptr)};
+            return {data.data(), size_t(ptr)};
         }
 
         void push(cat c) {

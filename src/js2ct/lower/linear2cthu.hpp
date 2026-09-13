@@ -482,7 +482,18 @@ namespace qthu::js2ct::cthu {
         cthu::module lower(lin::program &prog) {
             cthu::module mod{};
             for (int i = 0; i < prog.functions.size(); ++i) {
-                std::string struct_name = i == 0 ? "main" : sema.function_name(prog.functions[i].name);
+                // Named __toplevel__, not main: main is what every
+                // hand-written .ct fixture (fib.ct etc.) uses for its own
+                // entry point, and it's also the single most natural name a
+                // JS author reaches for first -- naming the auto-generated
+                // script driver something no JS identifier can spell makes
+                // that collision structurally impossible instead of needing
+                // a dedicated rejection check (see sema/analysis.hpp;
+                // ct2qjs's find_main_id() accepts either name for its own
+                // entry-point lookup).
+                std::string struct_name = i == 0
+                                               ? "__toplevel__"
+                                               : sema.function_name(prog.functions[i].name);
                 structure_builder sb{struct_name, prog.functions[i], sema};
                 mod.structures.push_back(std::move(sb.lower()));
             }

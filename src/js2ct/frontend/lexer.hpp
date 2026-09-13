@@ -104,7 +104,7 @@ namespace qthu::js2ct {
             if (ec != std::errc())
                 return false;
 
-            int size = xptr - sv.begin();
+            int size = xptr - sv.data();
             ptr += size;
             return true;
         }
