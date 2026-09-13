@@ -21,6 +21,7 @@ structure jsvalue : arithmetic[ jsvalue, stck, bool ], bitwise[ jsvalue ]
 
     add    = qjs_val_add
     sub    = qjs_val_sub
+    neg    = qjs_val_neg
     mul    = qjs_val_mul
     div    = qjs_val_div
     rem    = qjs_val_rem

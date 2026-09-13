@@ -48,30 +48,30 @@ namespace qthu::js2ct {
         }
 
         op_kind op_kind_from_str(std::string_view data) {
-            if (data == "+") return js2ct::ADD;
-            if (data == "-") return js2ct::SUB;
-            if (data == "*") return js2ct::MUL;
-            if (data == "/") return js2ct::DIV;
-            if (data == "%") return js2ct::MOD;
-            if (data == "<<") return js2ct::SHL;
-            if (data == ">>") return js2ct::SHR;
-            if (data == "==") return js2ct::EQ;
-            if (data == "===") return js2ct::EQ;
-            if (data == "!=") return js2ct::NEQ;
-            if (data == "!==") return js2ct::NEQ;
-            if (data == "<") return js2ct::LT;
-            if (data == "<=") return js2ct::LEQ;
-            if (data == ">") return js2ct::GT;
-            if (data == ">=") return js2ct::GEQ;
-            if (data == "!") return js2ct::NOT;
-            if (data == "&&") return js2ct::AND;
-            if (data == "||") return js2ct::OR;
-            if (data == "&") return js2ct::BAND;
-            if (data == "|") return js2ct::BOR;
-            if (data == "^") return js2ct::BXOR;
-            if (data == "~") return js2ct::BNOT;
+            if (data == "+") return ADD;
+            if (data == "-") return SUB;
+            if (data == "*") return MUL;
+            if (data == "/") return DIV;
+            if (data == "%") return MOD;
+            if (data == "<<") return SHL;
+            if (data == ">>") return SHR;
+            if (data == "==") return EQ;
+            if (data == "===") return EQ;
+            if (data == "!=") return NEQ;
+            if (data == "!==") return NEQ;
+            if (data == "<") return LT;
+            if (data == "<=") return LEQ;
+            if (data == ">") return GT;
+            if (data == ">=") return GEQ;
+            if (data == "!") return NOT;
+            if (data == "&&") return AND;
+            if (data == "||") return OR;
+            if (data == "&") return BAND;
+            if (data == "|") return BOR;
+            if (data == "^") return BXOR;
+            if (data == "~") return BNOT;
             error("Unknown operator:", data);
-            return js2ct::ADD;
+            return ADD;
         }
 
         bool match(cat c, std::string_view data = "") {

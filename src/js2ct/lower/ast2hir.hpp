@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 #include "../../common/error.hpp"
 #include "../../common/visit.hpp"
 #include "../ir/hir.hpp"
@@ -27,6 +29,7 @@ namespace qthu::js2ct::hir {
 
         expr_id lower_expr(func_ctx &fc, ast::expr &e) {
             expr res{.typ = type::jsvalue};
+            std::optional<expr_id> folded;
 
             std::visit(overloaded{
                            [ & ](ast::int_lit &il) {
@@ -42,6 +45,10 @@ namespace qthu::js2ct::hir {
                                res.data = expr::var{.id = sema.identifier_bindings.at(&e)};
                            },
                            [ & ](ast::unary &u) {
+                               if (u.op == ADD) {
+                                   folded = lower_expr(fc, *u.sub);
+                                   return;
+                               }
                                expr_id sub = lower_expr(fc, *u.sub);
                                res.data = expr::unary{.op = u.op, .sub = sub};
                            },
@@ -91,6 +98,8 @@ namespace qthu::js2ct::hir {
                            },
                        }, e.data);
 
+            if (folded)
+                return *folded;
             return append_expr(fc, std::move(res));
         }
 

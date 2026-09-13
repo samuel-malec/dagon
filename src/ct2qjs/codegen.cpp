@@ -156,6 +156,13 @@ namespace qthu::ct2qjs {
             return;
         }
 
+        if (name == "qjs_val_neg") {
+            get1(insn);
+            builder.add_instr(as::neg_());
+            builder.add_instr(as::put_loc_(insn.slots_out[0]));
+            return;
+        }
+
         if (name == "qjs_val_mul") {
             binary_insn(insn, as::mul_());
             return;

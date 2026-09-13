@@ -84,6 +84,21 @@ namespace qthu::js2ct::cthu {
             throw std::runtime_error("op_to_str: unhandled op_kind");
         }
 
+        // Unary and binary ops can share the same op_kind (SUB is both
+        // binary "-" and unary "-"), but the .ct builtins they lower to
+        // don't: "sub" is arity-2 only (arithmetic[T,S,B] in prelude.ct).
+        // Unary minus needs its own arity-1 builtin ("neg", backed by
+        // QuickJS's native OP_neg) rather than reusing "sub" with one
+        // argument -- the .ct reader doesn't check op arity against the
+        // signature, so a 1-argument "sub" call used to silently compile
+        // and then corrupt local-slot indexing at codegen time instead of
+        // failing loudly.
+        std::string unary_op_to_str(op_kind op) {
+            if (op == SUB)
+                return "neg";
+            return op_to_str(op);
+        }
+
         std::string compact_run(char c, size_t k) {
             if (k == 0)
                 return "";
@@ -188,7 +203,7 @@ namespace qthu::js2ct::cthu {
                                    emit(curr_fn, "jsvalue", "set", {sd.obj, sd.key, sd.val}, {sd.target});
                                },
                                [ & ](lin::unary_data &u) {
-                                   emit(curr_fn, "jsvalue", op_to_str(u.op), {u.arg1}, {u.target});
+                                   emit(curr_fn, "jsvalue", unary_op_to_str(u.op), {u.arg1}, {u.target});
                                },
                                [ & ](lin::binary_data &b) {
                                    emit(curr_fn, "jsvalue", op_to_str(b.op), {b.arg1, b.arg2}, {b.target});
