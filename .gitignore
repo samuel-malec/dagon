@@ -25,3 +25,4 @@ build-wasm/
 bin/
 debug/
 release/
+scripts/
