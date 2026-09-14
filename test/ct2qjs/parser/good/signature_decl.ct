@@ -1,0 +1,20 @@
+; a generic signature, with a simple inheritance chain, that some
+; structure declares itself as conforming to
+signature base[ T ]
+(
+    id ∷ T → T
+)
+
+signature derived[ T ] : base[ T ]
+(
+    twin ∷ T → T × T
+)
+
+structure main : derived[ main ]
+(
+    run = λ
+    (
+        jsvalue cons_1 → %0
+        jsvalue assert %0
+    )
+)

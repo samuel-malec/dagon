@@ -1,0 +1,17 @@
+structure main
+(
+    run = λ
+    (
+        jsvalue cons_1 → %0
+        jsvalue assert %0
+    )
+)
+
+structure main
+(
+    run = λ
+    (
+        jsvalue cons_1 → %0
+        jsvalue assert %0
+    )
+)

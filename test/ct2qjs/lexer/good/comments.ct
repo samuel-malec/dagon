@@ -1,0 +1,11 @@
+; a comment on its own line, before anything else
+
+structure main
+(
+    run = λ ; a trailing comment after code on the same line
+    (
+        ; a comment inside the instruction list
+        jsvalue cons_1 → %0
+        jsvalue assert %0 ; trailing comment on the last instruction
+    )
+)

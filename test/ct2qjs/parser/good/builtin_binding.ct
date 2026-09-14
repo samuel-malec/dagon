@@ -1,0 +1,13 @@
+; a structure can bind an operation directly to a builtin name (no lambda),
+; the same grammar every op in src/cthu_core/js_dial/builtins.ct uses --
+; here mixed with a normal lambda-defined one in the same structure
+structure main
+(
+    mv  = qjs_val_move
+
+    run = λ
+    (
+        jsvalue cons_1 → %0
+        jsvalue assert %0
+    )
+)

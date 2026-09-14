@@ -1,0 +1,9 @@
+; the lexer accepts ASCII "->" as an alias for the unicode arrow "→"
+structure main
+(
+    run = λ
+    (
+        jsvalue cons_1 -> %0
+        jsvalue assert %0
+    )
+)

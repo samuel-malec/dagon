@@ -1,0 +1,9 @@
+structure main
+(
+    run = λ
+    (
+        jsvalue cons_1 → %0
+        jsvalue assert %0
+    )
+)
+; trailing comment with no newline after it

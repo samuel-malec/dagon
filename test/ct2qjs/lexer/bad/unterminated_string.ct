@@ -1,0 +1,8 @@
+structure main
+(
+    run = λ
+    (
+        jsvalue cons_str "never closed
+        jsvalue assert %0
+    )
+)

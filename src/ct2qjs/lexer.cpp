@@ -54,7 +54,18 @@ namespace qthu::ct2qjs {
                 throw std::runtime_error(std::format("Unterminated string literal at line: {}, in column: {}", loc.line,
                                                      loc.col));
 
-            push(cat::str);
+            // Not push(cat::str) -- that helper no-ops when ptr==0 (a
+            // guard that's dead weight for every other caller, since they
+            // always shift() at least one character before calling it),
+            // but an empty string literal ("") legitimately has zero
+            // content bytes between the quotes and still needs a real
+            // (empty) str token pushed, not silently dropped -- which,
+            // unnoticed, previously left a bare "" invisible to the
+            // reader entirely, surfacing far downstream as a confusing
+            // "requires a string literal operand" codegen error instead
+            // of at the true source.
+            out.push(token{cat::str, loc, token_data()});
+            drop();
 
             shift();
             drop();

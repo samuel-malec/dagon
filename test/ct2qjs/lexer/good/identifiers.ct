@@ -1,0 +1,14 @@
+; exercises the .ct lexer's extended identifier character set: prime ('),
+; subscript digits, '?', and a leading underscore (PLAN.md P12)
+structure main
+(
+    run = λ
+    (
+        jsvalue cons_1 → x'
+        jsvalue dup x' → y₁ y₂
+        jsvalue cons_1 → _hidden
+        jsvalue eq? y₁ _hidden → is_one?
+        jsvalue assert is_one?
+        jsvalue drop y₂
+    )
+)
