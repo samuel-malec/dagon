@@ -59,6 +59,23 @@ namespace qthu::js2ct::lin {
             return sema::binding_id{next_synth_binding++};
         }
 
+        // Closes the "doesn't see through further nesting" gap documented
+        // on if_data's own definition (linear.hpp): a lowered body's last
+        // instruction counts as "definitely returns" either when it's a
+        // literal `ret_data`, or when it's an `if_data` that's itself
+        // already marked exhaustively_returns -- which composes correctly
+        // for a chain of guard clauses (`if (a) return X; if (b) return Y;
+        // return Z;`), since each inner if's exhaustively_returns is
+        // computed (and set) before its enclosing if ever asks this
+        // question about it.
+        bool instr_always_returns(const instr &i) {
+            if (std::holds_alternative<ret_data>(i.data))
+                return true;
+            if (auto *id = std::get_if<if_data>(&i.data))
+                return id->exhaustively_returns;
+            return false;
+        }
+
         argument lower_expr(std::vector<instr> &sink, rename_env &env, hir::expr_id eid) {
             const auto &node = fn.get(eid);
 
@@ -306,16 +323,14 @@ namespace qthu::js2ct::lin {
                                std::vector<instr> then_body;
                                rename_env then_env = env;
                                lower_stmt(then_body, then_env, ifd.then_branch);
-                               bool then_returns = !then_body.empty() && std::holds_alternative<ret_data>(
-                                                       then_body.back().data);
+                               bool then_returns = !then_body.empty() && instr_always_returns(then_body.back());
 
                                std::vector<instr> else_body;
                                rename_env else_env = env;
                                bool else_returns = false;
                                if (ifd.else_branch) {
                                    lower_stmt(else_body, else_env, ifd.else_branch.value());
-                                   else_returns = !else_body.empty() && std::holds_alternative<ret_data>(
-                                                      else_body.back().data);
+                                   else_returns = !else_body.empty() && instr_always_returns(else_body.back());
                                }
 
                                // Both branches definitely return: nothing after the if in

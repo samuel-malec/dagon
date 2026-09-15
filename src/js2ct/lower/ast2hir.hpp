@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <optional>
 
 #include "../../common/error.hpp"
@@ -119,15 +120,63 @@ namespace qthu::js2ct::hir {
             return lower_stmt(fc, s, mod);
         }
 
+        // Purely syntactic, single-pass "does this statement definitely
+        // return" check, used below to decide whether sibling statements
+        // following an if-with-no-else need to be absorbed into a
+        // synthesized else-branch. Deliberately conservative -- doesn't see
+        // through a nested if/else where both branches return (the same
+        // limitation hir2linear.hpp's own then_returns/else_returns check
+        // already has, documented in Claude.md's known-bugs list). A false
+        // negative here just means we don't absorb (falls back to the
+        // existing, unchanged behavior for that shape), never that we
+        // absorb incorrectly.
+        bool ast_stmt_always_returns(const ast::stmt &s) {
+            if (std::holds_alternative<ast::ret>(s.data))
+                return true;
+            if (auto *b = std::get_if<ast::block>(&s.data))
+                return !b->stmts.empty() && ast_stmt_always_returns(*b->stmts.back());
+            return false;
+        }
+
+        // Lowers a flat statement list (a block's own `.stmts`, a function
+        // body, or the top-level script), absorbing a guard clause's
+        // trailing siblings into a synthesized else-branch as it goes --
+        // see ast_stmt_always_returns's comment above for why. Shared by
+        // every place that walks such a list (the ast::block case below,
+        // lower_function, and lower()) rather than duplicated three times,
+        // so the fix applies uniformly regardless of which kind of block
+        // the guard clause happens to sit in.
+        std::vector<stmt_id> lower_stmt_list(func_ctx &fc, std::vector<ast::stmt_ptr> &stmts, module &mod) {
+            std::vector<stmt_id> out;
+            for (std::size_t idx = 0; idx < stmts.size(); ++idx) {
+                auto &stmt = stmts[idx];
+
+                if (auto *ifs = std::get_if<ast::if_stmt>(&stmt->data);
+                    ifs && !ifs->else_branch && idx + 1 < stmts.size() &&
+                    ast_stmt_always_returns(*ifs->then_branch)) {
+                    std::vector<ast::stmt_ptr> rest;
+                    for (std::size_t j = idx + 1; j < stmts.size(); ++j)
+                        rest.push_back(std::move(stmts[j]));
+
+                    ifs->else_branch = std::make_unique<ast::stmt>(ast::stmt{
+                        .loc = stmt->loc, .data = ast::block{std::move(rest)}
+                    });
+
+                    if (auto id = lower_stmt_opt(fc, *stmt, mod))
+                        out.push_back(*id);
+                    break;
+                }
+
+                if (auto id = lower_stmt_opt(fc, *stmt, mod))
+                    out.push_back(*id);
+            }
+            return out;
+        }
+
         stmt_id lower_stmt(func_ctx &fc, ast::stmt &s, module &mod) {
             return std::visit(overloaded{
                                   [ & ](ast::block &b) -> stmt_id {
-                                      std::vector<stmt_id> out;
-                                      for (auto &stmt: b.stmts)
-                                          if (auto id = lower_stmt_opt(fc, *stmt, mod))
-                                              out.push_back(*id);
-
-                                      return make_block(fc, std::move(out));
+                                      return make_block(fc, lower_stmt_list(fc, b.stmts, mod));
                                   },
                                   [ & ](ast::var_declaration &vd) -> stmt_id {
                                       std::vector<stmt_id> out;
@@ -226,15 +275,11 @@ namespace qthu::js2ct::hir {
             fc.fn.id = sema.stmt_functions.at(&s);
             fc.fn.lexical_parent = parent;
 
-            std::vector<stmt_id> body_stmts;
             ast::fn_declaration &fd = std::get<ast::fn_declaration>(s.data);
             for (auto &param: fd.params)
                 fc.fn.parameters.push_back(sema.param_bindings.at(&param));
 
-            for (auto &sub: fd.body.stmts)
-                if (auto id = lower_stmt_opt(fc, *sub, mod))
-                    body_stmts.push_back(id.value());
-
+            std::vector<stmt_id> body_stmts = lower_stmt_list(fc, fd.body.stmts, mod);
             fc.fn.body_root = make_block(fc, std::move(body_stmts));
             mod.functions.push_back(std::move(fc.fn));
         }
@@ -245,11 +290,7 @@ namespace qthu::js2ct::hir {
             fc.fn.id = sema.global_function;
             fc.fn.lexical_parent = std::nullopt;
 
-            std::vector<stmt_id> top;
-            for (auto &sub: ast.statements)
-                if (auto id = lower_stmt_opt(fc, *sub, mod))
-                    top.push_back(id.value());
-
+            std::vector<stmt_id> top = lower_stmt_list(fc, ast.statements, mod);
             fc.fn.body_root = make_block(fc, std::move(top));
             mod.script = std::move(fc.fn);
             return mod;

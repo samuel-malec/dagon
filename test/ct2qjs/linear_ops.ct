@@ -1,0 +1,28 @@
+; direct ct2qjs-level coverage for the four core linear-type primitives:
+; dup (split one use into two), drop (explicitly discard an unused value),
+; move and copy (relocate a value under a new name -- same bytecode, kept
+; as distinct .ct-level operations)
+structure main
+(
+    run = λ
+    (
+        jsvalue cons_1 → x
+        jsvalue dup x → x1 x2
+        jsvalue cons_1 → one
+        jsvalue eq? x1 one → ok0
+        jsvalue assert ok0
+        jsvalue drop x2
+
+        jsvalue cons_2 → y
+        jsvalue move y → y2
+        jsvalue cons_2 → two
+        jsvalue eq? y2 two → ok1
+        jsvalue assert ok1
+
+        jsvalue cons_3 → z
+        jsvalue copy z → z2
+        jsvalue cons_3 → three
+        jsvalue eq? z2 three → ok2
+        jsvalue assert ok2
+    )
+)

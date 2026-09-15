@@ -4,6 +4,9 @@ function run() {
     assert(s != "world");
     assert(("foo" == "foo") == true);
     assert(("foo" == "bar") == false);
+
+    let cat = "foo" + "bar";
+    assert(cat == "foobar");
 }
 
 run();

@@ -97,11 +97,13 @@ namespace qthu::js2ct::lin {
     // becomes the enclosing function's return value one level up, tail-
     // position style) -- packing it anyway would silently break that,
     // since the enclosing function would stop looking like it produces
-    // "out" at all. Detected as a direct check (does the lowered body's
-    // last instruction happen to be a return), not a general "does this
-    // statement always terminate" analysis -- doesn't see through further
-    // nesting (e.g. a branch whose entire content is itself another
-    // exhaustively-returning if isn't recognized), a known, documented gap.
+    // "out" at all. Detected via hir2linear.hpp's instr_always_returns:
+    // a branch's lowered body "returns" either when its last instruction
+    // is a literal `ret_data`, or when it's itself an `if_data` already
+    // marked exhaustively_returns -- which composes for an arbitrarily
+    // long chain of guard clauses (`if (a) return X; if (b) return Y;
+    // return Z;`), since each nested if's own exhaustively_returns is
+    // resolved before the if enclosing it ever asks the question.
     struct if_data {
         argument cond;
         std::vector<instr> then_body;

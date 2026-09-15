@@ -18,5 +18,19 @@ structure main
         jsvalue not v7    → v8        ; not(3 < 2) == true
 
         jsvalue assert v8
+
+        jsvalue cons_20 → v9
+        jsvalue cons_4  → v10
+        jsvalue div v9 v10 → v11      ; 20 / 4 == 5
+        jsvalue cons_5      → expect11
+        jsvalue eq? v11 expect11 → ok11
+        jsvalue assert ok11
+
+        jsvalue cons_7 → v12
+        jsvalue cons_3 → v13
+        jsvalue rem v12 v13 → v14     ; 7 % 3 == 1
+        jsvalue cons_1      → expect14
+        jsvalue eq? v14 expect14 → ok14
+        jsvalue assert ok14
     )
 )
