@@ -6,8 +6,8 @@ function clampNonNeg(x) {
 }
 
 function run() {
-    assert(clampNonNeg(0 - 5) == 1);
-    assert(clampNonNeg(5) == 6);
+    assert(clampNonNeg(0 - 5) === 1);
+    assert(clampNonNeg(5) === 6);
 }
 
 run();

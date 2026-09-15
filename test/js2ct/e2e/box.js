@@ -10,7 +10,7 @@ function makeBox() {
 function run() {
     let b = makeBox();
     let items = b.items;
-    assert(items[0] + items[1] == 300);
+    assert(items[0] + items[1] === 300);
 }
 
 run();

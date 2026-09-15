@@ -188,6 +188,16 @@ namespace qthu::ct2qjs {
             return;
         }
 
+        if (name == "qjs_val_seq") {
+            binary_insn(insn, as::strict_eq_());
+            return;
+        }
+
+        if (name == "qjs_val_sne") {
+            binary_insn(insn, as::strict_neq_());
+            return;
+        }
+
         if (name == "qjs_val_lt") {
             binary_insn(insn, as::lt_());
             return;

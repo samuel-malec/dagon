@@ -7,8 +7,8 @@ function abs(x) {
 }
 
 function run() {
-    assert(abs(0 - 7) == 7);
-    assert(abs(7) == 7);
+    assert(abs(0 - 7) === 7);
+    assert(abs(7) === 7);
 }
 
 run();

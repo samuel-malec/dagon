@@ -13,7 +13,7 @@ function run() {
     a[0] = 10;
     a[1] = 20;
     a[2] = 30;
-    assert(sumArray(a, 3) == 60);
+    assert(sumArray(a, 3) === 60);
 }
 
 run();

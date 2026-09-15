@@ -7,8 +7,8 @@ function factorial(n) {
 }
 
 function run() {
-    assert(factorial(0) == 1);
-    assert(factorial(5) == 120);
+    assert(factorial(0) === 1);
+    assert(factorial(5) === 120);
 }
 
 run();

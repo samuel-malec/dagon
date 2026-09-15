@@ -27,6 +27,8 @@ structure jsvalue : arithmetic[ jsvalue, stck, bool ], bitwise[ jsvalue ]
     rem    = qjs_val_rem
     eq?    = qjs_val_eq
     ne?    = qjs_val_ne
+    seq?   = qjs_val_seq
+    sne?   = qjs_val_sne
     lt?    = qjs_val_lt
     le?    = qjs_val_le
     gt?    = qjs_val_gt

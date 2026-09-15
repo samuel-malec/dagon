@@ -7,8 +7,8 @@ function sumTo(n) {
 }
 
 function run() {
-    assert(sumTo(5) == 10);
-    assert(sumTo(0) == 0);
+    assert(sumTo(5) === 10);
+    assert(sumTo(0) === 0);
 }
 
 run();

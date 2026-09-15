@@ -16,7 +16,7 @@ function incrementBy(c, n) {
 function run() {
     let c = makeCounter();
     c = incrementBy(c, 5);
-    assert(c.count == 5);
+    assert(c.count === 5);
 }
 
 run();

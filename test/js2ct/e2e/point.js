@@ -7,7 +7,7 @@ function makePoint(x, y) {
 
 function run() {
     let p = makePoint(3, 4);
-    assert(p.x + p.y == 7);
+    assert(p.x + p.y === 7);
 }
 
 run();

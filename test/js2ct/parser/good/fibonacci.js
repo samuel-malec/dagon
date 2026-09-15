@@ -1,5 +1,5 @@
 function fib_rec(fib1, fib2, n) {
-    if (n == 0)
+    if (n === 0)
         return fib2;
 
     return fib_rec(fib2, fib1 + fib2, n - 1);

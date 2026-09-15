@@ -3,7 +3,7 @@ function five() {
 }
 
 function run() {
-    assert(five() == 5);
+    assert(five() === 5);
 }
 
 run();

@@ -4,7 +4,7 @@ namespace qthu::js2ct {
     enum op_kind {
         ADD, SUB, MUL, DIV, MOD, SHL, SHR,
 
-        EQ, NEQ, LT, LEQ, GT, GEQ,
+        EQ, NEQ, LT, LEQ, GT, GEQ, SEQ, SNEQ,
 
         NOT, AND, OR,
 
@@ -26,6 +26,8 @@ namespace qthu::js2ct {
             case LEQ: return os << "<=";
             case GT: return os << ">";
             case GEQ: return os << ">=";
+            case SEQ: return os << "===";
+            case SNEQ: return os << "!==";
             case NOT: return os << "!";
             case AND: return os << "&&";
             case OR: return os << "||";

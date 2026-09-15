@@ -1,0 +1,30 @@
+; direct ct2qjs-level coverage for 'seq?'/'sne?' (PLAN.md P19) --
+; strict equality/inequality, distinct from 'eq?'/'ne?' in that they
+; never coerce between types
+structure main
+(
+    run = λ
+    (
+        jsvalue cons_3 → a0
+        jsvalue cons_3 → b0
+        jsvalue seq? a0 b0 → r0       ; 3 === 3
+        jsvalue assert r0
+
+        jsvalue cons_3 → a1
+        jsvalue cons_4 → b1
+        jsvalue sne? a1 b1 → r1       ; 3 !== 4
+        jsvalue assert r1
+
+        ; 'eq?' coerces number/string, 'seq?' must not
+        jsvalue cons_1     → a2
+        jsvalue cons_str "1" → b2
+        jsvalue eq? a2 b2 → r2        ; 1 == "1" (coerced)
+        jsvalue assert r2
+
+        jsvalue cons_1     → a3
+        jsvalue cons_str "1" → b3
+        jsvalue seq? a3 b3 → r3       ; 1 === "1" (not coerced)
+        jsvalue not r3    → r4        ; must be false
+        jsvalue assert r4
+    )
+)

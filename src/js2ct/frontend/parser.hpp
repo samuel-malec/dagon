@@ -56,9 +56,9 @@ namespace qthu::js2ct {
             if (data == "<<") return SHL;
             if (data == ">>") return SHR;
             if (data == "==") return EQ;
-            if (data == "===") return EQ;
+            if (data == "===") return SEQ;
             if (data == "!=") return NEQ;
-            if (data == "!==") return NEQ;
+            if (data == "!==") return SNEQ;
             if (data == "<") return LT;
             if (data == "<=") return LEQ;
             if (data == ">") return GT;

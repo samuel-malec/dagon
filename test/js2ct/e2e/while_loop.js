@@ -9,7 +9,7 @@ function sumTo(n) {
 }
 
 function run() {
-    assert(sumTo(5) == 10);
+    assert(sumTo(5) === 10);
 }
 
 run();

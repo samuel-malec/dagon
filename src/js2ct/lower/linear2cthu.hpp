@@ -66,6 +66,8 @@ namespace qthu::js2ct::cthu {
                 case LEQ: return "le?";
                 case GT: return "gt?";
                 case GEQ: return "ge?";
+                case SEQ: return "seq?";
+                case SNEQ: return "sne?";
                 case SHL: return "shl";
                 case SHR: return "shr";
                 case NOT: return "not";
