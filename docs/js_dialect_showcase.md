@@ -31,20 +31,22 @@ test/explore_js2ct.sh test/js2ct/e2e/point.js
 ```
 
 ## What is supported
+
 - Literals & types: `int`, `bool`, `string` — all as a single boxed jsvalue, no real type distinctions beyond that.
 - Operators: `+ - * / %`, unary `+/-`, `== != === !== < <= > >=`, `&& ||` (short-circuit), `!`, `& | ^ ~ << >>`.
-- Variables: let, reassignment, compound assignment 
+- Variables: let, reassignment, compound assignment
 - Control flow: if/else (tail and non-tail position, including early-return guard clauses), while, do-while, for.
 - Functions: declarations, calls, any number of params, recursion.
 - Objects/arrays: literals with inline values, dot and bracket access, mutation, array push/pop via index assignment.
 - Strings: literals, equality/inequality, + concatenation.
 
 ## Notable omissions
+
 - `break` and `continue`
 - closures
 - classes, switch, try/catch, arrow functions, typeof/instanceof
 - computed object keys {[expr]: v} and multi-level assignment targets (a.b.c = v)
-- 
+
 ## 1. Reassigning a variable — `reassign`
 
 ```js

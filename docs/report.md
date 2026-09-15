@@ -1,48 +1,68 @@
 # Priebežná správa k projektu
 
+BLOKY 1-2-3
+
 ## Vypracoval: Samuel Malec
 
-Pred samotnou implementáciou, sme začali s rešeršou QuickJS.
-Konkrétne sme sa zamerali na inštrukčnú sadu, jednotlivé časti a formát bajtkódu,
-načítanie a spúštanie bajtkódu.
+Nasledujúci dokument reprezentuje priebežnú správu projektu: Vývoj prekladačov pre jazyk Cthulhu (MUNI/33/0029/2026).
 
-Po úvodnej rešerši sme naimplementovali jednoduchý C++ program, ktorého úlohou je načítať preložený QuickJS modul a spustiť ho.
-Tento prograbm nám umožňuje spúštanie QuickJS modulov, a tým pádom je kľúčovou častou testovania projektu.
+Zdrojový kód spolu s testami je verejne dostupný na https://github.com/samuel-malec/dagon.
 
-Zadefinovali sme textový formát QuickJS bajtkódu, na ktorý sa dá pozerať ako na zjednodušený assembly kód.
-Tento formát nám umožňuje jednoduchšie testovanie a debugovanie QuickJS bajtkódu, ktorý je výsledkom našeho prekladača.
-Aby sme sa lepšie zoznámili s QuickJS a odtestovali náš preklad z textového do binárneho formátu QuickJS,
-napísali sme sadu ručne napísaných programov, ktoré sme spúštali pomocou vyššie spomenutého C++ programu.
-[Implementácia a relevantné testovacie súbory sa nachádzajú v src/qasm, resp. test/qasm]
+(TODO: v zadaní projektu sa požaduje, nech je kód dostupný na gitlabe labu, dohodnúť sa s Uhlíkom Vladimírom...)
 
-Po odtestovaní prekladu z textového do binárneho formátu QuickJS, sme sa pustili do návrhu kľučových prvkov Cthulhu,
-ktoré budeme používať na reprezentáciu JavaScript programov. Vytvorili sme sadu jednoduchých programov v JavaScripte,
-ktoré demonštrujú funkcionalitu, ktorú chceme dosiahnuť v našom projekte.
-Pre každý z týchto ukážkových programov sme ručne napísali očakávanú Cthulhu medzireprezentáciu, ktorú by sme chceli
-dostať ako výstup nášho prekladača.
+[bcrun]
+Našu prácu na projekte sme začali rešeršou QuickJS.
+Konkrétne sme sa zamerali na pochopenie inštrukčnej sady,
+štruktúry jednotlivých častí QuickJS bajtkódu.
+Po úvodnej rešerši sme implementovali jednoduchý program,
+ktorého úlohou je načítať preložený QuickJS modul a spustiť ho.
+Tento program sa nachádza v src/bcrun.c, a tvorí kľúčovú časť testovania celého projektu.
+Implementovaný program sme odtestovali spustením QuickJS modulov,
+ktoré sme získali prekladom ukážkových JavaScript
+programov.
 
-Keď sme mali navrhnutý základný dialekt pre JavaScript a napísanú sadu testovacích programov, pustili sme sa do samotnej
-implementácie prekladača z Cthulhu do QuickJS,
-tento prekladač sme nazvali `ct2qjs`.
+[asm]
+V dalšom kroku sme zadefinovali textový formát QuickJS bajtkódu,
+ktorého implementácia sa nachádza v src/asm.
+Tento formát nám umožňuje jednoduchšie ladanie výsledného QuickJS bajtkódu,
+ako aj jednoduchšiu prácu s bajtkódom, keďže
+textový formát zakrýva mnoho implementačných detailov QuickJS modulu.
+Po návrhu potrebných štruktúr sme implementovali rozhranie 
+pre budovanie textového QuickJS bajtkódu. 
+Následne sme implementovali preklad z textového formátu bajtkódu do QuickJS modulu.
+Tento preklad sme odtestovali na súbore ukážkových programov, nachádzajúcich sa v test/asm.
 
-Najprv sme implementovali syntaktický analyzátor Cthulhu programov.
-Pre tento účel sme si vytvorili potrebné štruktúry a využili sme techniku rekurzívneho zostupu.
-Po parsovaní sme sa pustili do jednoduchej sémantickej analýzy Cthulhu programov - najmä
-kontrolujeme, či všetky použité štruktúry a signatúry existujú, (treba ešte spraviť analýzu lineárneho kódu, a možno aj
-sofistikovanejšiu typovú analýzu ).
+[ct2qjs]
+Ďalším krokom bol návrh a implementácia potrebných štruktúr pre reprezentáciu JavaScript programov v jazyku Cthulhu.
+Implementované boli interné štruktúry a signatúry jazyka Cthulhu,
+ako aj C++ štruktúry na reprezentáciu samotných Cthulhu programov,
+ktoré sa nachádzajú v src/cthu_core/
+Po tomto kroku sme vytvorili sadu programov v Cthulhu, ktorej cieľom je demonštrovať funkcionalitu požadovanú v zadaní
+projektu. Táto sada programov sa nachádza v test/ct2qjs/
 
-# TODO: toto tu je jazykovo skomolené, potrebovali by sme lepšiu formuláciu
-Na úvod sme si zadefinovali štruktúry, ktoré nám preložia celočíselné a boolean literály.
-Začali sme prekladom jednoduchých aritmetických výrazov. Následne sme prešli na podporu pre lokálne premenné,
-pomocou `let` bindingu.
+Následne sme začali implementovať prekladač jazyka Cthulhu do QuickJS,
+ktorého zdrojový kód sa nachádza v src/ct2qjs.
+Začali sme implementáciou syntaktického analyzátoru Cthulhu programov.
+Na tento účel sme si vytvorili potrebné štruktúry a k syntaktickej analýze sme využili techniku rekurzívneho zostupu.
+Testy implementácie syntaktickej analýzy sa nachádzajú v test/ct2qjs/parser/
+Po syntaktickej analýze sme implementovali sémantickú analýzu Cthulhu programov (ok nie tak úplne, ale ok, treba dorobiť
+typechecker a zaručiť lineárne typy...)
+Ďalej sme implementovali generáciu QuickJS bajtkódu.
+Využili sme už vyššie spomenuté rozhranie pre generáciu textového formátu QuickJS bajtkódu a
+pre každú Cthulhu inštrukciu sme vygenerovali korešpondujúci QuickJS bajtkód.
+Pre implementovanú funkcionalitu sme vytvorili sadu testov, ktorá sa nachádza v test/ct2qjs.
 
-## ct2qjs
-
-V nasledujúcich podkapitolách popisujeme jednotlivé jazykové konštrukcie, ktoré `ct2qjs` v súčasnosti podporuje.
+[js2ct]
+Keďže do tejto doby sa testovanie `ct2qjs` spoliehalo na ručne napísaný QuickJS bajtkód, bolo náročné vytvárať a
+overovať nové testy.
+Taktiež, dlhodobým cieľom projektu je využitie Cthulhu na statickú analýzu JavaScript programov.
+Tieto dôvody nás viedli k implementácií funkcionality nad rámec zadania projektu, a to konkrétne k implementácií
+prekladača podmnožiny JavaScript-u do Cthulhu.
 
 ### Aritmetika
 
-Implementovali sme základné aritmetické operácie: sčítanie (`add`), odčítanie (`sub`), násobenie (`mul`), delenie (`div`)
+Implementovali sme základné aritmetické operácie: sčítanie (`add`), odčítanie (`sub`), násobenie (`mul`), delenie
+(`div`)
 a zvyšok po delení (`rem`). Ďalej sme implementovali porovnávacie operácie (`eq?`, `ne?`, `lt?`, `le?`, `gt?`, `ge?`)
 a bitové operácie (`band`, `bor`, `bxor`, `bnot`, `shl`, `shr`).
 
@@ -63,8 +83,8 @@ nepoužitej hodnoty, potrebné na splnenie linearity), `move` a `copy`.
 
 ### If-vetvy
 
-If-vetvy prekladáme s rozlíšením medzi tzv. tail a non-tail pozíciou. Pokiaľ obe vetvy končia priamym `return`om
-(tail pozícia), vieme vygenerovať jednoduchší kód. Pokiaľ za if-vetvou nasleduje ďalší kód (non-tail pozícia), museli
+If-vetvy prekladáme s rozlíšením medzi tzv. tail a non-tail pozíciou. Pokiaľ obe vetvy končia priamym `return`om (tail
+pozícia), vieme vygenerovať jednoduchší kód. Pokiaľ za if-vetvou nasleduje ďalší kód (non-tail pozícia), museli
 sme doriešiť, ako sa majú premenné zmenené v jednotlivých vetvách prejaviť aj mimo if-vetvy - každá vetva zabalí svoje
 "živé" (ďalej používané) premenné do jedného poľa, ktoré sa po vykonaní príslušnej vetvy rozbalí naspäť do pôvodných
 premenných v okolitom kóde. Osobitný prípad predstavujú vetvy, ktoré vždy skončia príkazom `return` - v tom prípade sa
@@ -102,17 +122,4 @@ vstupy, ktoré má prekladač čisto odmietnuť. Pri písaní tejto sady sme odh
 napríklad že `.ct` reader sa pri neukončenom (skrátenom) vstupe niekedy zacyklil namiesto toho, aby vstup korektne
 odmietol s chybovou hláškou.
 
-## js2ct
-
-Nad rámec oficiálneho zadania projektu, sme sa rozhodli implementovať prekladač
-z podmnožiny jazyka JavaScript do Cthulhu, ktorý sme nazvali `js2ct`.
-Tento prekladač nám umožní mať end-to-end pipeline, vďaka ktorej budeme môcť porovnávať QuickJS bajtkód vyprodukovaný
-priamo prekladačom qjsc, a QuickJS bajtkódom, ktorý bol analyzovaný pomocou Cthulhu.
-Toto nám dá dôležitý nástroj, vďaka ktorému budeme môcť porovnávať efekt analýz vykonaných v Cthulhu.
-
-Tento projekt znovu začal obdobne, najprv sme začali s jednoduchým prekladom aritmetických výrazov, potom sme pridali
-premenné, if príkazy, while-príkazy, funkcie a volania funkcií,
-nakoniec sme začali implementovať jednoduchú verziu objektov a polí.
-# TODO: chceme sa o tom rozpisovať aj napriek tomu, že to nie je oficialnou častou zadania ? 
-
-Github repozitár je tu: https://github.com/samuel-malec/qthu
+TODO: do we allow dupping references and is it allowed ? 
