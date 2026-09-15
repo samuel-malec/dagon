@@ -18,6 +18,9 @@ namespace qthu::js2ct::print {
                        [ & ](ast::str_lit &lit) {
                            out << "[ str_lit ] \"" << lit.value << "\"\n";
                        },
+                       [ & ](ast::undefined_lit &) {
+                           out << "[ undefined_lit ]\n";
+                       },
                        [ & ](ast::var &id) {
                            out << "[ var ] " << id.name << '\n';
                        },
@@ -221,6 +224,7 @@ namespace qthu::js2ct::print {
         std::visit(overloaded{
                        [ & ](uint64_t i) { out << i; },
                        [ & ](bool b) { out << (b ? "true" : "false"); },
+                       [ & ](std::monostate) { out << "undefined"; },
                    }, c);
     }
 
@@ -467,6 +471,9 @@ namespace qthu::js2ct::print {
                        },
                        [ & ](const hir::expr::str_lit &lit) {
                            out << "[str_lit:" << node.typ << "] \"" << lit.value << "\"";
+                       },
+                       [ & ](const hir::expr::undefined_lit &) {
+                           out << "[undefined_lit:" << node.typ << "]";
                        },
                        [ & ](const hir::expr::var &v) {
                            out << "[var:" << node.typ << "] " << "v" << v.id.value;

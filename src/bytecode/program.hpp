@@ -51,7 +51,6 @@ namespace qthu::bc {
         std::vector<uint32_t> cpool_funcs; // indices into program.functions
         std::vector<uint8_t> bytecode; // raw opcode stream
         std::map<std::string, uint32_t> local_labels;
-        // TODO: we should find another way to represent labels instead of storing their textual name
     };
 
     struct program {

@@ -45,7 +45,7 @@ namespace qthu::ct2qjs {
         builder.add_label(end_label);
     }
 
-    // todo: we should probably have a precomputed map for these builtins...
+    // TODO: we should probably have a precomputed map for these builtins...
     void codegen::emit_builtin(const lowered_insn &insn, uint32_t uid) {
         auto get1 = [ & ](const lowered_insn &insn) {
             builder.add_instr(as::get_loc_(insn.slots_in[0]));
@@ -281,6 +281,12 @@ namespace qthu::ct2qjs {
 
             if (suffix == "false") {
                 builder.add_instr(as::push_false_());
+                builder.add_instr(as::put_loc_(insn.slots_out[0]));
+                return;
+            }
+
+            if (suffix == "undef") {
+                builder.add_instr(as::undefined_());
                 builder.add_instr(as::put_loc_(insn.slots_out[0]));
                 return;
             }

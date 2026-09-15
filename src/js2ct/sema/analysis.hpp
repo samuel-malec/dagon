@@ -354,6 +354,9 @@ namespace qthu::js2ct::sema {
                            [ & ](ast::str_lit &) {
                                // Nothing to resolve.
                            },
+                           [ & ](ast::undefined_lit &) {
+                               // Nothing to resolve.
+                           },
                            [ & ](ast::var &id) {
                                auto sid = lookup(curr_scope, id.name);
                                if (!sid)

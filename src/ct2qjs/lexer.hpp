@@ -157,15 +157,13 @@ namespace qthu::ct2qjs {
         bool skip(sv32_t s, bool &b) {
             if (skip(s))
                 return b = true;
-            else
-                return false;
+            return false;
         }
 
         bool skip(sv32_t s) {
             if (peek(s))
                 return shift(s.size()), drop(), true;
-            else
-                return false;
+            return false;
         }
 
         bool peek_any(sv32_t s) const {
@@ -175,8 +173,7 @@ namespace qthu::ct2qjs {
         bool accept_any(sv32_t s, cat c) {
             if (peek_any(s))
                 return shift(), push(c), true;
-            else
-                return false;
+            return false;
         }
 
         sv_t token_data() const {

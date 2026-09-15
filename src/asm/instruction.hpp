@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <map>
+#include <utility>
 #include <vector>
 #include <stdexcept>
 
@@ -45,7 +46,7 @@ namespace qthu::as {
         addr(std::string_view s) : sym(s) {
         };
 
-        addr(std::string s) : sym(s) {
+        addr(std::string s) : sym(std::move(s)) {
         };
 
         addr(std::string_view s, int32_t o) : sym(s), off(o) {

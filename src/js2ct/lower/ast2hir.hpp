@@ -42,6 +42,9 @@ namespace qthu::js2ct::hir {
                            [ & ](ast::str_lit &sl) {
                                res.data = expr::str_lit{.value = sl.value};
                            },
+                           [ & ](ast::undefined_lit &) {
+                               res.data = expr::undefined_lit{};
+                           },
                            [ & ](ast::var &) {
                                res.data = expr::var{.id = sema.identifier_bindings.at(&e)};
                            },
@@ -181,9 +184,18 @@ namespace qthu::js2ct::hir {
                                   [ & ](ast::var_declaration &vd) -> stmt_id {
                                       std::vector<stmt_id> out;
                                       for (auto &dec: vd.declarators) {
+                                          // `let x;` (no initializer) means `let x = undefined;`,
+                                          // same as real JS -- synthesize the undefined_lit
+                                          // directly rather than leaving `value` unset, so this
+                                          // binding gets a real .ct value from the start instead
+                                          // of an unbacked local slot (see PLAN.md's uninitialized-
+                                          // variable writeup).
                                           std::optional<expr_id> value;
                                           if (dec.init)
                                               value = lower_expr(fc, dec.init.value());
+                                          else
+                                              value = append_expr(
+                                                  fc, expr{.typ = type::jsvalue, .data = expr::undefined_lit{}});
 
                                           sema::binding_id bid = sema.declarator_bindings.at(&dec);
                                           stmt::let_stmt ls{.typ = type::jsvalue, .target = bid, .value = value};

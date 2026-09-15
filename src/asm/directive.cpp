@@ -43,7 +43,6 @@ namespace qthu::as {
         dir.mnemonic = std::string(mnemonic_sv);
         bool is_function = mnemonic_sv == "function";
 
-        // FIXME: this seems rather odd restriction to function names
         if (is_function) {
             if (!valid_name(lex.sv))
                 throw std::runtime_error(std::format("invalid function name: '{}'", std::string(lex.sv)));

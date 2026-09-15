@@ -55,6 +55,11 @@ namespace qthu::js2ct {
             return ast::expr{.loc = t->loc, .data = ast::bool_lit{value}};
         }
 
+        if (match(cat::keyword, "undefined")) {
+            auto tok = fetch();
+            return ast::expr{.loc = tok.loc, .data = ast::undefined_lit{}};
+        }
+
         if (match(cat::str)) {
             auto tok = fetch();
             return ast::expr{.loc = tok.loc, .data = ast::str_lit{tok.data}};

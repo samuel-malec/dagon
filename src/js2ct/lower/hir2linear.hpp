@@ -97,6 +97,11 @@ namespace qthu::js2ct::lin {
                                       });
                                       return target;
                                   },
+                                  [ & ](const hir::expr::undefined_lit &) -> argument {
+                                      value target = vn.fresh();
+                                      sink.push_back(instr{cons_data{.c = std::monostate{}, .target = target}});
+                                      return target;
+                                  },
                                   [ & ](const hir::expr::var &v) -> argument {
                                       value fst = vn.fresh();
                                       value snd = vn.fresh();

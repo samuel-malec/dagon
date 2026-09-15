@@ -31,6 +31,9 @@ namespace qthu::js2ct::hir {
             std::string_view value;
         };
 
+        struct undefined_lit {
+        };
+
         struct var {
             sema::binding_id id;
         };
@@ -76,8 +79,8 @@ namespace qthu::js2ct::hir {
         };
 
         type typ;
-        std::variant<int_lit, bool_lit, str_lit, var, unary, binary, assign, call, member, object_lit,
-            array_lit, member_assign>
+        std::variant<int_lit, bool_lit, str_lit, undefined_lit, var, unary, binary, assign, call, member,
+            object_lit, array_lit, member_assign>
         data;
     };
 

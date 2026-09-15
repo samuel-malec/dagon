@@ -182,10 +182,11 @@ namespace qthu::js2ct::cthu {
                                [ & ](lin::cons_data &cd) {
                                    if (auto *int_val = std::get_if<uint64_t>(&cd.c))
                                        emit(curr_fn, "jsvalue", "cons_" + std::to_string(*int_val), {}, {cd.target});
+                                   else if (auto *bool_val = std::get_if<bool>(&cd.c))
+                                       emit(curr_fn, "jsvalue", "cons_" + std::string(*bool_val ? "true" : "false"),
+                                            {}, {cd.target});
                                    else
-                                       emit(curr_fn, "jsvalue",
-                                            "cons_" + std::string(std::get<bool>(cd.c) ? "true" : "false"), {},
-                                            {cd.target});
+                                       emit(curr_fn, "jsvalue", "cons_undef", {}, {cd.target});
                                },
                                [ & ](lin::str_cons_data &sd) {
                                    insn new_insn{"jsvalue", "cons_str", {}, args2str({sd.target})};

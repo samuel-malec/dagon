@@ -6,8 +6,8 @@ Pred samotnou implementáciou, sme začali s rešeršou QuickJS.
 Konkrétne sme sa zamerali na inštrukčnú sadu, jednotlivé časti a formát bajtkódu,
 načítanie a spúštanie bajtkódu.
 
-Po úvodnej rešerši sme naimplementovali jednoduchý C++ program, ktorého úlohou je načítať QuickJS modul a spustiť ho.
-Tento program nám umožňuje spúštanie QuickJS modulov, a tým pádom je kľúčovou častou testovania projektu.
+Po úvodnej rešerši sme naimplementovali jednoduchý C++ program, ktorého úlohou je načítať preložený QuickJS modul a spustiť ho.
+Tento prograbm nám umožňuje spúštanie QuickJS modulov, a tým pádom je kľúčovou častou testovania projektu.
 
 Zadefinovali sme textový formát QuickJS bajtkódu, na ktorý sa dá pozerať ako na zjednodušený assembly kód.
 Tento formát nám umožňuje jednoduchšie testovanie a debugovanie QuickJS bajtkódu, ktorý je výsledkom našeho prekladača.

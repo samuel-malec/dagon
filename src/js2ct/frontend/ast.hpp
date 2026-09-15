@@ -26,6 +26,9 @@ namespace qthu::js2ct::ast {
         std::string_view value;
     };
 
+    struct undefined_lit {
+    };
+
     struct var {
         std::string_view name;
     };
@@ -82,6 +85,7 @@ namespace qthu::js2ct::ast {
             int_lit,
             bool_lit,
             str_lit,
+            undefined_lit,
             var,
             unary,
             binary,

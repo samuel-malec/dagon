@@ -12,7 +12,7 @@ namespace qthu::js2ct {
     static const std::set<std::string_view> keywords = {
         "if", "else", "for", "do", "while", "break",
         "continue", "case", "return", "function",
-        "let", "const", "var", "true", "false",
+        "let", "const", "var", "true", "false", "undefined",
     };
 
     static const std::set<std::string_view> punct = {
