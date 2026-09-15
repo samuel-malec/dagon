@@ -1,7 +1,3 @@
-; direct ct2qjs-level coverage for 'neg' (PLAN.md P14) -- js2ct's own
-; unary_minus.js e2e fixture exercises it too, but only through the full
-; js2ct -> ct2qjs pipeline; this drives ct2qjs's codegen for it directly,
-; hand-written, independent of js2ct entirely
 structure main
 (
     run = λ

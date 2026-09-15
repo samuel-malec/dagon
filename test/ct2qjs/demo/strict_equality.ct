@@ -1,6 +1,3 @@
-; direct ct2qjs-level coverage for 'seq?'/'sne?' (PLAN.md P19) --
-; strict equality/inequality, distinct from 'eq?'/'ne?' in that they
-; never coerce between types
 structure main
 (
     run = λ

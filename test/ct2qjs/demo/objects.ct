@@ -2,7 +2,6 @@ structure main
 (
     run = λ
     (
-        ; --- array: cons_arr, chained set, dup-before-get reuse ---
         jsvalue cons_arr → a0
 
         jsvalue cons_0 → zero
