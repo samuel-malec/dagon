@@ -1,8 +1,4 @@
 function run() {
-    // '===' does not coerce types -- unlike '=='. The inner comparisons
-    // here are the whole point of the test, so '==' / '!=' stay as-is
-    // deliberately -- converting them to '===' / '!==' would make this
-    // fixture stop testing coercion at all.
     assert((1 == "1") === true);
     assert((1 === "1") === false);
     assert((1 !== "1") === true);

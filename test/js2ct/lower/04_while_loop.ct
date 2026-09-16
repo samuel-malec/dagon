@@ -6,19 +6,6 @@
 ;   }
 ;   let result = sumTo(5);
 ;
-; A loop is recursion where the "recursive call" targets the same closure.
-; loop_0 plays fib.ct's `loop` role (the dispatcher); body_0 plays `rec`
-; (keep looping -- tail-calls back into `sumTo loop_0`, i.e. itself, by
-; name); exit_0 plays `base` (loop exit). No cthuc changes needed: fn_ref
-; resolution just looks a name up in the symbol table, which already
-; contains this structure's own functions.
-;
-; A call can only ever propagate ONE output (QuickJS functions return a
-; single value), so every name still live when the loop is entered -- n, i
-; and s, not just the ones read after the loop -- travels as a single
-; packed array: cons_arr/set before each call, dup/get after. n and i are
-; dead once the loop exits, so run() just drops them post-unpack.
-
 structure sumTo
 (
     body_0 = λ n i s → packed

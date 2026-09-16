@@ -1,5 +1,4 @@
 function run() {
-    // body runs at least once even when the condition starts false
     let i = 0;
     let n = 0;
     do {

@@ -1,5 +1,4 @@
 function run() {
-    // precedence: '*'/'/' bind tighter than '+'/'-'
     assert(2 + 3 * 4 - 6 / 2 === 11);
 
     assert(3 + 4 === 7);
