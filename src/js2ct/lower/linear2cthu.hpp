@@ -86,15 +86,6 @@ namespace qthu::js2ct::cthu {
             throw std::runtime_error("op_to_str: unhandled op_kind");
         }
 
-        // Unary and binary ops can share the same op_kind (SUB is both
-        // binary "-" and unary "-"), but the .ct builtins they lower to
-        // don't: "sub" is arity-2 only (arithmetic[T,S,B] in prelude.ct).
-        // Unary minus needs its own arity-1 builtin ("neg", backed by
-        // QuickJS's native OP_neg) rather than reusing "sub" with one
-        // argument -- the .ct reader doesn't check op arity against the
-        // signature, so a 1-argument "sub" call used to silently compile
-        // and then corrupt local-slot indexing at codegen time instead of
-        // failing loudly.
         std::string unary_op_to_str(op_kind op) {
             if (op == SUB)
                 return "neg";
@@ -221,100 +212,102 @@ namespace qthu::js2ct::cthu {
                                    emit(curr_fn, "jsvalue", "drop", {}, {dr.target});
                                },
                                [ & ](lin::if_data &id) {
-                    std::string cmp1 = fresh_val("cmp");
-                    std::string cmp2 = fresh_val("cmp");
-                    std::string cmp3 = fresh_val("cmp");
+                                   std::string cmp1 = fresh_val("cmp");
+                                   std::string cmp2 = fresh_val("cmp");
+                                   std::string cmp3 = fresh_val("cmp");
 
-                    emit(curr_fn, "jsvalue", "dup", args2str({id.cond}), {cmp1, cmp2});
-                    emit(curr_fn, "jsvalue", "not", {cmp2}, {cmp3});
+                                   emit(curr_fn, "jsvalue", "dup", args2str({id.cond}), {cmp1, cmp2});
+                                   emit(curr_fn, "jsvalue", "not", {cmp2}, {cmp3});
 
-                    std::string then_name = fresh_val("then");
-                    std::string else_name = fresh_val("else");
-                    std::string frame_name = fresh_val("frame");
+                                   std::string then_name = fresh_val("then");
+                                   std::string else_name = fresh_val("else");
+                                   std::string frame_name = fresh_val("frame");
 
-                    std::vector<std::string> params = vals2str(id.params);
-                    std::string fsig = call_signature_name(params.size());
+                                   std::vector<std::string> params = vals2str(id.params);
+                                   std::string fsig = call_signature_name(params.size());
 
-                    if (id.exhaustively_returns) {
-                        // Both branches always `return`: nothing after the if
-                        // in this block ever executes, so there's nothing to
-                        // thread forward. Keep the simple, single-"out"
-                        // shape this case has always used -- each branch's
-                        // own trailing return already produces "out"
-                        // locally, and the dispatch's own result becomes the
-                        // enclosing function's return value one level up
-                        // (tail position). Packing here would silently break
-                        // that: the enclosing function would stop having
-                        // anything literally named "out" in its own body,
-                        // which is what marks it as producing a value at all
-                        // (structure_builder::lower(), P2.6).
-                        lower_fn(then_name, id.then_body);
-                        lower_fn(else_name, id.else_body);
-                        curr_struct->functions[then_name].in = params;
-                        curr_struct->functions[then_name].out = {"out"};
-                        curr_struct->functions[else_name].in = params;
-                        curr_struct->functions[else_name].out = {"out"};
-                    } else {
-                        // Each branch, like loop_data's own branches (P2.5),
-                        // produces exactly one packed output -- a call can
-                        // only ever propagate one -- built by packing the
-                        // branch's live-binding outputs (then_outputs/
-                        // else_outputs) as trailing instructions appended
-                        // after the branch's own lowered body (pack_values
-                        // runs against a throwaway scratch function purely
-                        // to collect those instructions for use as
-                        // lower_fn's `extra`).
-                        function then_pack_scratch{};
-                        std::string then_packed = pack_values(then_pack_scratch, vals2str(id.then_outputs));
-                        lower_fn(then_name, id.then_body, then_pack_scratch.body);
-                        curr_struct->functions[then_name].in = params;
-                        curr_struct->functions[then_name].out = {then_packed};
+                                   if (id.exhaustively_returns) {
+                                       // Both branches always `return`: nothing after the if
+                                       // in this block ever executes, so there's nothing to
+                                       // thread forward. Keep the simple, single-"out"
+                                       // shape this case has always used -- each branch's
+                                       // own trailing return already produces "out"
+                                       // locally, and the dispatch's own result becomes the
+                                       // enclosing function's return value one level up
+                                       // (tail position). Packing here would silently break
+                                       // that: the enclosing function would stop having
+                                       // anything literally named "out" in its own body,
+                                       // which is what marks it as producing a value at all
+                                       // (structure_builder::lower(), P2.6).
+                                       lower_fn(then_name, id.then_body);
+                                       lower_fn(else_name, id.else_body);
+                                       curr_struct->functions[then_name].in = params;
+                                       curr_struct->functions[then_name].out = {"out"};
+                                       curr_struct->functions[else_name].in = params;
+                                       curr_struct->functions[else_name].out = {"out"};
+                                   } else {
+                                       // Each branch, like loop_data's own branches (P2.5),
+                                       // produces exactly one packed output -- a call can
+                                       // only ever propagate one -- built by packing the
+                                       // branch's live-binding outputs (then_outputs/
+                                       // else_outputs) as trailing instructions appended
+                                       // after the branch's own lowered body (pack_values
+                                       // runs against a throwaway scratch function purely
+                                       // to collect those instructions for use as
+                                       // lower_fn's `extra`).
+                                       function then_pack_scratch{};
+                                       std::string then_packed = pack_values(
+                                           then_pack_scratch, vals2str(id.then_outputs));
+                                       lower_fn(then_name, id.then_body, then_pack_scratch.body);
+                                       curr_struct->functions[then_name].in = params;
+                                       curr_struct->functions[then_name].out = {then_packed};
 
-                        function else_pack_scratch{};
-                        std::string else_packed = pack_values(else_pack_scratch, vals2str(id.else_outputs));
-                        lower_fn(else_name, id.else_body, else_pack_scratch.body);
-                        curr_struct->functions[else_name].in = params;
-                        curr_struct->functions[else_name].out = {else_packed};
-                    }
+                                       function else_pack_scratch{};
+                                       std::string else_packed = pack_values(
+                                           else_pack_scratch, vals2str(id.else_outputs));
+                                       lower_fn(else_name, id.else_body, else_pack_scratch.body);
+                                       curr_struct->functions[else_name].in = params;
+                                       curr_struct->functions[else_name].out = {else_packed};
+                                   }
 
-                    // create_frame is unchanged from before this fix: it dups
-                    // params, calls A/B generically, and joins their two
-                    // results -- it never cared what its callees' own output
-                    // name was, only that there's one, so it's correct
-                    // whether that's plain "out" or a packed array.
-                    function frame_fn = create_frame(params, fsig);
-                    curr_struct->functions[frame_name] = std::move(frame_fn);
+                                   // create_frame is unchanged from before this fix: it dups
+                                   // params, calls A/B generically, and joins their two
+                                   // results -- it never cared what its callees' own output
+                                   // name was, only that there's one, so it's correct
+                                   // whether that's plain "out" or a packed array.
+                                   function frame_fn = create_frame(params, fsig);
+                                   curr_struct->functions[frame_name] = std::move(frame_fn);
 
-                    // Reference each sibling closure by name before using it
-                    // as an opt/join operand -- struct_name callee_name -> ref
-                    // is the fn_ref idiom (matches loop_data's own loop_ref/
-                    // frame_ref).
-                    std::string then_ref = fresh_val("ref");
-                    std::string else_ref = fresh_val("ref");
-                    std::string frame_ref = fresh_val("ref");
-                    emit(curr_fn, struct_name, then_name, {}, {then_ref});
-                    emit(curr_fn, struct_name, else_name, {}, {else_ref});
-                    emit(curr_fn, struct_name, frame_name, {}, {frame_ref});
+                                   // Reference each sibling closure by name before using it
+                                   // as an opt/join operand -- struct_name callee_name -> ref
+                                   // is the fn_ref idiom (matches loop_data's own loop_ref/
+                                   // frame_ref).
+                                   std::string then_ref = fresh_val("ref");
+                                   std::string else_ref = fresh_val("ref");
+                                   std::string frame_ref = fresh_val("ref");
+                                   emit(curr_fn, struct_name, then_name, {}, {then_ref});
+                                   emit(curr_fn, struct_name, else_name, {}, {else_ref});
+                                   emit(curr_fn, struct_name, frame_name, {}, {frame_ref});
 
-                    std::string alt1_name = fresh_val("alt");
-                    std::string alt2_name = fresh_val("alt");
-                    emit(curr_fn, fsig, "opt", {cmp1, then_ref}, {alt1_name});
-                    emit(curr_fn, fsig, "opt", {cmp3, else_ref}, {alt2_name});
+                                   std::string alt1_name = fresh_val("alt");
+                                   std::string alt2_name = fresh_val("alt");
+                                   emit(curr_fn, fsig, "opt", {cmp1, then_ref}, {alt1_name});
+                                   emit(curr_fn, fsig, "opt", {cmp3, else_ref}, {alt2_name});
 
-                    std::string cont = fresh_val("cont");
-                    emit(curr_fn, fsig, "join", {alt1_name, alt2_name, frame_ref}, {cont});
+                                   std::string cont = fresh_val("cont");
+                                   emit(curr_fn, fsig, "join", {alt1_name, alt2_name, frame_ref}, {cont});
 
-                    std::vector call_args{cont};
-                    for (auto &p: params)
-                        call_args.push_back(p);
+                                   std::vector call_args{cont};
+                                   for (auto &p: params)
+                                       call_args.push_back(p);
 
-                    if (id.exhaustively_returns)
-                        emit(curr_fn, fsig, "call", call_args, {"out"});
-                    else {
-                        std::string packed_result = fresh_val("packed");
-                        emit(curr_fn, fsig, "call", call_args, {packed_result});
-                        unpack_values(curr_fn, packed_result, vals2str(id.outputs));
-                    }
+                                   if (id.exhaustively_returns)
+                                       emit(curr_fn, fsig, "call", call_args, {"out"});
+                                   else {
+                                       std::string packed_result = fresh_val("packed");
+                                       emit(curr_fn, fsig, "call", call_args, {packed_result});
+                                       unpack_values(curr_fn, packed_result, vals2str(id.outputs));
+                                   }
                                },
                                // todo: we should probably stop codegen of curr_fn after hitting return because everything that follows is dead code,
                                [ & ](lin::ret_data &r) {
@@ -338,116 +331,119 @@ namespace qthu::js2ct::cthu {
                                    emit(curr_fn, fsig, "call", call_args, vals2str({c.target}));
                                },
                                [ & ](lin::loop_data &ld) {
-                    std::vector<std::string> params = vals2str(ld.params);
-                    std::vector<std::string> outs = vals2str(ld.outputs);
-                    std::string fsig = call_signature_name(params.size());
+                                   std::vector<std::string> params = vals2str(ld.params);
+                                   std::vector<std::string> outs = vals2str(ld.outputs);
+                                   std::string fsig = call_signature_name(params.size());
 
-                    std::string loop_name = fresh_val("loop");
-                    std::string cont_name = fresh_val("loopbody");
-                    std::string exit_name = fresh_val("loopexit");
-                    std::string frame_name = fresh_val("loopframe");
+                                   std::string loop_name = fresh_val("loop");
+                                   std::string cont_name = fresh_val("loopbody");
+                                   std::string exit_name = fresh_val("loopexit");
+                                   std::string frame_name = fresh_val("loopframe");
 
-                    // Every closure below has exactly one output: a call can only ever
-                    // propagate insn.slots_out[0] (QuickJS functions return a single
-                    // value), so a loop's N live bindings travel packed into one array
-                    // (pack_values) and are unpacked (unpack_values) only where an
-                    // individual binding is actually needed again — after the outer call.
+                                   // Every closure below has exactly one output: a call can only ever
+                                   // propagate insn.slots_out[0] (QuickJS functions return a single
+                                   // value), so a loop's N live bindings travel packed into one array
+                                   // (pack_values) and are unpacked (unpack_values) only where an
+                                   // individual binding is actually needed again — after the outer call.
 
-                    // exit branch: pack the loop's live params straight through as the result.
-                    {
-                        cthu::function exit_fn{};
-                        exit_fn.in = params;
-                        std::string packed = pack_values(exit_fn, params);
-                        exit_fn.out = {packed};
-                        curr_struct->functions[exit_name] = std::move(exit_fn);
-                    }
+                                   // exit branch: pack the loop's live params straight through as the result.
+                                   {
+                                       cthu::function exit_fn{};
+                                       exit_fn.in = params;
+                                       std::string packed = pack_values(exit_fn, params);
+                                       exit_fn.out = {packed};
+                                       curr_struct->functions[exit_name] = std::move(exit_fn);
+                                   }
 
-                    // continue branch: run one iteration of the body, then tail-recurse
-                    // into loop_name (self-reference by name) with the updated values.
-                    {
-                        std::string self_ref = fresh_val("self");
-                        std::vector rec_args{self_ref};
-                        for (auto &p: vals2str(ld.next_params))
-                            rec_args.push_back(p);
+                                   // continue branch: run one iteration of the body, then tail-recurse
+                                   // into loop_name (self-reference by name) with the updated values.
+                                   {
+                                       std::string self_ref = fresh_val("self");
+                                       std::vector rec_args{self_ref};
+                                       for (auto &p: vals2str(ld.next_params))
+                                           rec_args.push_back(p);
 
-                        std::vector<insn> extra;
-                        extra.push_back(insn{struct_name, loop_name, {}, {self_ref}});
-                        extra.push_back(insn{fsig, "call", rec_args, {"packed"}});
+                                       std::vector<insn> extra;
+                                       extra.push_back(insn{struct_name, loop_name, {}, {self_ref}});
+                                       extra.push_back(insn{fsig, "call", rec_args, {"packed"}});
 
-                        lower_fn(cont_name, ld.body, extra);
-                        curr_struct->functions[cont_name].in = params;
-                        curr_struct->functions[cont_name].out = {"packed"};
-                    }
+                                       lower_fn(cont_name, ld.body, extra);
+                                       curr_struct->functions[cont_name].in = params;
+                                       curr_struct->functions[cont_name].out = {"packed"};
+                                   }
 
-                    // frame: dup each param for both branches, call both (one always
-                    // hits the opt'd-out "bot" closure), join the two packed results.
-                    {
-                        function frame_fn{};
-                        std::vector<std::string> frame_in{"A", "B"};
-                        for (auto &p: params)
-                            frame_in.push_back(p);
-                        frame_fn.in = frame_in;
+                                   // frame: dup each param for both branches, call both (one always
+                                   // hits the opt'd-out "bot" closure), join the two packed results.
+                                   {
+                                       function frame_fn{};
+                                       std::vector<std::string> frame_in{"A", "B"};
+                                       for (auto &p: params)
+                                           frame_in.push_back(p);
+                                       frame_fn.in = frame_in;
 
-                        std::vector<std::string> dup_first{"A"}, dup_second{"B"};
-                        for (size_t k = 2; k < frame_in.size(); ++k) {
-                            std::string fst = frame_in[k] + "_1", snd = frame_in[k] + "_2";
-                            dup_first.push_back(fst);
-                            dup_second.push_back(snd);
-                            frame_fn.body.push_back(insn{"jsvalue", "dup", {frame_in[k]}, {fst, snd}});
-                        }
+                                       std::vector<std::string> dup_first{"A"}, dup_second{"B"};
+                                       for (size_t k = 2; k < frame_in.size(); ++k) {
+                                           std::string fst = frame_in[k] + "_1", snd = frame_in[k] + "_2";
+                                           dup_first.push_back(fst);
+                                           dup_second.push_back(snd);
+                                           frame_fn.body.push_back(insn{"jsvalue", "dup", {frame_in[k]}, {fst, snd}});
+                                       }
 
-                        std::string packed1 = fresh_val("p1"), packed2 = fresh_val("p2");
-                        frame_fn.body.push_back(insn{fsig, "call", dup_first, {packed1}});
-                        frame_fn.body.push_back(insn{fsig, "call", dup_second, {packed2}});
-                        std::string packed = fresh_val("packed");
-                        frame_fn.body.push_back(insn{"jsvalue", "join", {packed1, packed2}, {packed}});
-                        frame_fn.out = {packed};
+                                       std::string packed1 = fresh_val("p1"), packed2 = fresh_val("p2");
+                                       frame_fn.body.push_back(insn{fsig, "call", dup_first, {packed1}});
+                                       frame_fn.body.push_back(insn{fsig, "call", dup_second, {packed2}});
+                                       std::string packed = fresh_val("packed");
+                                       frame_fn.body.push_back(insn{"jsvalue", "join", {packed1, packed2}, {packed}});
+                                       frame_fn.out = {packed};
 
-                        curr_struct->functions[frame_name] = std::move(frame_fn);
-                    }
+                                       curr_struct->functions[frame_name] = std::move(frame_fn);
+                                   }
 
-                    // loop_name: the self-recursive dispatcher. Re-runs cond_body and
-                    // the opt/join/call dispatch on *every* call, initial or recursive.
-                    {
-                        std::string cmp1 = fresh_val("cmp"), cmp2 = fresh_val("cmp"), cmp3 = fresh_val("cmp");
-                        std::string cont_ref = fresh_val("ref"), exit_ref = fresh_val("ref"), frame_ref = fresh_val(
-                            "ref");
-                        std::string alt1 = fresh_val("alt"), alt2 = fresh_val("alt"), joined = fresh_val("cont");
+                                   // loop_name: the self-recursive dispatcher. Re-runs cond_body and
+                                   // the opt/join/call dispatch on *every* call, initial or recursive.
+                                   {
+                                       std::string cmp1 = fresh_val("cmp"), cmp2 = fresh_val("cmp"), cmp3 = fresh_val(
+                                           "cmp");
+                                       std::string cont_ref = fresh_val("ref"), exit_ref = fresh_val("ref"), frame_ref =
+                                               fresh_val(
+                                                   "ref");
+                                       std::string alt1 = fresh_val("alt"), alt2 = fresh_val("alt"), joined = fresh_val(
+                                           "cont");
 
-                        std::vector<insn> extra;
-                        extra.push_back(insn{"jsvalue", "dup", args2str({ld.cond}), {cmp1, cmp2}});
-                        extra.push_back(insn{"jsvalue", "not", {cmp2}, {cmp3}});
-                        extra.push_back(insn{struct_name, cont_name, {}, {cont_ref}});
-                        extra.push_back(insn{struct_name, exit_name, {}, {exit_ref}});
-                        extra.push_back(insn{struct_name, frame_name, {}, {frame_ref}});
-                        extra.push_back(insn{fsig, "opt", {cmp1, cont_ref}, {alt1}});
-                        extra.push_back(insn{fsig, "opt", {cmp3, exit_ref}, {alt2}});
-                        extra.push_back(insn{fsig, "join", {alt1, alt2, frame_ref}, {joined}});
+                                       std::vector<insn> extra;
+                                       extra.push_back(insn{"jsvalue", "dup", args2str({ld.cond}), {cmp1, cmp2}});
+                                       extra.push_back(insn{"jsvalue", "not", {cmp2}, {cmp3}});
+                                       extra.push_back(insn{struct_name, cont_name, {}, {cont_ref}});
+                                       extra.push_back(insn{struct_name, exit_name, {}, {exit_ref}});
+                                       extra.push_back(insn{struct_name, frame_name, {}, {frame_ref}});
+                                       extra.push_back(insn{fsig, "opt", {cmp1, cont_ref}, {alt1}});
+                                       extra.push_back(insn{fsig, "opt", {cmp3, exit_ref}, {alt2}});
+                                       extra.push_back(insn{fsig, "join", {alt1, alt2, frame_ref}, {joined}});
 
-                        // Use dispatch_args, not params: cond_body (which just
-                        // ran, right above) may have already consumed some of
-                        // loop_name's own declared "in" names via dup.
-                        std::vector call_args{joined};
-                        for (auto &p: vals2str(ld.dispatch_args))
-                            call_args.push_back(p);
-                        extra.push_back(insn{fsig, "call", call_args, {"packed"}});
+                                       // Use dispatch_args, not params: cond_body (which just
+                                       // ran, right above) may have already consumed some of
+                                       // loop_name's own declared "in" names via dup.
+                                       std::vector call_args{joined};
+                                       for (auto &p: vals2str(ld.dispatch_args))
+                                           call_args.push_back(p);
+                                       extra.push_back(insn{fsig, "call", call_args, {"packed"}});
 
-                        lower_fn(loop_name, ld.cond_body, extra);
-                        curr_struct->functions[loop_name].in = params;
-                        curr_struct->functions[loop_name].out = {"packed"};
-                    }
+                                       lower_fn(loop_name, ld.cond_body, extra);
+                                       curr_struct->functions[loop_name].in = params;
+                                       curr_struct->functions[loop_name].out = {"packed"};
+                                   }
 
-                    // back in the enclosing function: reference loop_name, call it with
-                    // the current live params, then unpack the single packed result
-                    // back into the individual bindings the rest of the function expects.
-                    std::string loop_ref = fresh_val("ref");
-                    emit(curr_fn, struct_name, loop_name, {}, {loop_ref});
-                    std::vector outer_call_args{loop_ref};
-                    for (auto &p: params)
-                        outer_call_args.push_back(p);
-                    std::string packed_result = fresh_val("packed");
-                    emit(curr_fn, fsig, "call", outer_call_args, {packed_result});
-                    unpack_values(curr_fn, packed_result, outs);
+                                   // back in the enclosing function: reference loop_name, call it with
+                                   // the current live params, then unpack the single packed result
+                                   // back into the individual bindings the rest of the function expects.
+                                   std::string loop_ref = fresh_val("ref");
+                                   emit(curr_fn, struct_name, loop_name, {}, {loop_ref});
+                                   std::vector outer_call_args{loop_ref};
+                                   for (auto &p: params)
+                                       outer_call_args.push_back(p);
+                                   std::string packed_result = fresh_val("packed");
+                                   emit(curr_fn, fsig, "call", outer_call_args, {packed_result});
+                                   unpack_values(curr_fn, packed_result, outs);
                                },
                                // Not currently reachable from the real pipeline: hir2linear.hpp's
                                // lower_stmt now rejects break/continue with a clear error before
@@ -510,8 +506,8 @@ namespace qthu::js2ct::cthu {
                 // ct2qjs's find_main_id() accepts either name for its own
                 // entry-point lookup).
                 std::string struct_name = i == 0
-                                               ? "__toplevel__"
-                                               : sema.function_name(prog.functions[i].name);
+                                              ? "__toplevel__"
+                                              : sema.function_name(prog.functions[i].name);
                 structure_builder sb{struct_name, prog.functions[i], sema};
                 mod.structures.push_back(std::move(sb.lower()));
             }

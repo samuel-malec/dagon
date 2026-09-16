@@ -332,10 +332,6 @@ namespace qthu::js2ct::lin {
                                    else_returns = !else_body.empty() && instr_always_returns(else_body.back());
                                }
 
-                               // Both branches definitely return: nothing after the if in
-                               // this block can ever execute, so there's nothing to thread
-                               // forward -- keep the simple single-"out" shape (see the
-                               // exhaustively_returns comment on if_data's own definition).
                                bool exhaustively_returns = then_returns && ifd.else_branch && else_returns;
 
                                if (exhaustively_returns) {
@@ -356,9 +352,6 @@ namespace qthu::js2ct::lin {
                                    for (auto &bid: live_bindings)
                                        then_outputs.push_back(then_env.at(bid));
 
-                                   // else_env starts as a copy of env either way; if there's
-                                   // no explicit else branch it's never mutated, so this
-                                   // naturally yields "live bindings pass through unchanged".
                                    std::vector<value> else_outputs{};
                                    for (auto &bid: live_bindings)
                                        else_outputs.push_back(else_env.at(bid));

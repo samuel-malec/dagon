@@ -15,17 +15,6 @@ namespace qthu::ct2qjs {
             switch (t.cat) {
                 case token::eol:
                     break;
-                // Only reachable here as "the lexer drained the rest of the
-                // input without ever producing a real token" (e.g. a
-                // trailing comment right at EOF, with no newline after it)
-                // -- genuinely malformed/unlexable input never gets this
-                // far as `invalid` at all: an unrecognized character throws
-                // straight out of lexer::next(), and every mid-structure
-                // caller of fetch()/require() already turns an unexpected
-                // `invalid` into its own specific error before it could
-                // bubble up here. So at the toplevel specifically, `invalid`
-                // is just "nothing meaningful left" -- treat it like `eol`,
-                // not like a real unexpected token.
                 case token::invalid:
                     break;
                 case token::kw_type:
@@ -50,16 +39,6 @@ namespace qthu::ct2qjs {
     }
 
     token reader::peek() {
-        // Guarding the loop *condition* (not just the inner fetch loop)
-        // matters: once the input is truly exhausted and still hasn't
-        // produced a real token (truncated/malformed input -- an unclosed
-        // structure, a dangling trailing comment), `current` stays
-        // `invalid` forever and `lex.empty()` stays true forever, so a
-        // condition that only checks `current.cat == invalid` spins
-        // forever instead of ever returning. Returning the `invalid`
-        // token here is the correct EOF signal -- every caller (`require`,
-        // the toplevel `parse()` loop) already treats an unexpected
-        // `invalid` token as a normal, clean parse error.
         while (current.cat == token::invalid && !lex.empty()) {
             while (!lex.empty() && current.cat == token::invalid)
                 lex.next();
@@ -68,12 +47,6 @@ namespace qthu::ct2qjs {
                 current = {};
         }
 
-        // A default-constructed `token`'s `location` has a null `doc` (it
-        // was never actually produced by the lexer) -- fine as long as
-        // nothing ever prints it, but callers legitimately do print this
-        // exact EOF token's location in their error messages (e.g. "expected
-        // paren )" on a truncated file). Give it the lexer's own current
-        // position instead, which always has a valid `doc`.
         if (current.cat == token::invalid)
             current.loc = lex.loc;
 

@@ -296,7 +296,7 @@ namespace qthu::ct2qjs {
 
             if (ec == std::errc::invalid_argument)
                 throw std::runtime_error(std::string(name) + std::string(" argument of cons_ is not a number"));
-            else if (ec == std::errc()) {
+            if (ec == std::errc()) {
                 builder.add_instr(as::push_i32_(result));
                 builder.add_instr(as::put_loc_(insn.slots_out[0]));
             }

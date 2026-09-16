@@ -49,27 +49,18 @@ namespace qthu::js2ct::ast {
         std::vector<expr_ptr> args;
     };
 
-    // obj.x lowers with computed=false and key synthesized as a str_lit from
-    // the identifier text; arr[expr] lowers with computed=true and key as
-    // whatever expression was parsed -- computed is parse-time-only info
-    // (get is key-uniform, P3's design), not carried past ast2hir.
     struct member {
         expr_ptr object;
         expr_ptr key;
         bool computed;
     };
 
-    // target is `var` for a plain `x = v`, or `member` for `obj.x = v` /
-    // `arr[i] = v` -- single-level only: a member target's own `object` must
-    // itself resolve to a `var` (checked in the parser), not another member
-    // expression (`a.b.c = v` is out of scope for now).
+    // target is `var` for a plain `x = v`, or `member` for `obj.x = v`
     struct assign {
         std::variant<var, member> target;
         expr_ptr value;
     };
 
-    // Plain identifier or string-literal keys only; computed keys ({[expr]: v})
-    // are out of scope for now.
     struct object_lit {
         std::vector<std::pair<std::string_view, expr_ptr> > props;
     };

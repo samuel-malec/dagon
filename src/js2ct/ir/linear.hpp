@@ -18,8 +18,6 @@ namespace qthu::js2ct::lin {
         return lhs.id < rhs.id;
     }
 
-    // std::monostate marks the "undefined" constant -- distinct from any
-    // uint64_t/bool value, and needs no payload of its own.
     using constant = std::variant<uint64_t, bool, std::monostate>;
     using argument = std::variant<constant, value>;
 

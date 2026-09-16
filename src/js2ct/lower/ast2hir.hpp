@@ -123,16 +123,6 @@ namespace qthu::js2ct::hir {
             return lower_stmt(fc, s, mod);
         }
 
-        // Purely syntactic, single-pass "does this statement definitely
-        // return" check, used below to decide whether sibling statements
-        // following an if-with-no-else need to be absorbed into a
-        // synthesized else-branch. Deliberately conservative -- doesn't see
-        // through a nested if/else where both branches return (the same
-        // limitation hir2linear.hpp's own then_returns/else_returns check
-        // already has, documented in Claude.md's known-bugs list). A false
-        // negative here just means we don't absorb (falls back to the
-        // existing, unchanged behavior for that shape), never that we
-        // absorb incorrectly.
         bool ast_stmt_always_returns(const ast::stmt &s) {
             if (std::holds_alternative<ast::ret>(s.data))
                 return true;
@@ -141,14 +131,6 @@ namespace qthu::js2ct::hir {
             return false;
         }
 
-        // Lowers a flat statement list (a block's own `.stmts`, a function
-        // body, or the top-level script), absorbing a guard clause's
-        // trailing siblings into a synthesized else-branch as it goes --
-        // see ast_stmt_always_returns's comment above for why. Shared by
-        // every place that walks such a list (the ast::block case below,
-        // lower_function, and lower()) rather than duplicated three times,
-        // so the fix applies uniformly regardless of which kind of block
-        // the guard clause happens to sit in.
         std::vector<stmt_id> lower_stmt_list(func_ctx &fc, std::vector<ast::stmt_ptr> &stmts, module &mod) {
             std::vector<stmt_id> out;
             for (std::size_t idx = 0; idx < stmts.size(); ++idx) {
@@ -185,11 +167,6 @@ namespace qthu::js2ct::hir {
                                       std::vector<stmt_id> out;
                                       for (auto &dec: vd.declarators) {
                                           // `let x;` (no initializer) means `let x = undefined;`,
-                                          // same as real JS -- synthesize the undefined_lit
-                                          // directly rather than leaving `value` unset, so this
-                                          // binding gets a real .ct value from the start instead
-                                          // of an unbacked local slot (see PLAN.md's uninitialized-
-                                          // variable writeup).
                                           std::optional<expr_id> value;
                                           if (dec.init)
                                               value = lower_expr(fc, dec.init.value());
@@ -223,15 +200,10 @@ namespace qthu::js2ct::hir {
                                       return append_stmt(fc, stmt{.data = stmt::if_stmt{cond, then_b, else_b}});
                                   },
                                   [ & ](ast::do_while_stmt &dw) -> stmt_id {
-                                      // do{body}while(cond) === body; while(cond){body} --
-                                      // lower the body twice (source AST, not HIR, so this
-                                      // is a plain re-walk, not aliasing) rather than giving
-                                      // loop_stmt a second shape for post-condition loops.
                                       stmt_id first_body = lower_stmt(fc, *dw.body, mod);
                                       expr_id cond = lower_expr(fc, dw.cond);
                                       stmt_id loop_body = lower_stmt(fc, *dw.body, mod);
-                                      stmt_id loop =
-                                              append_stmt(fc, stmt{.data = stmt::loop_stmt{cond, loop_body}});
+                                      stmt_id loop = append_stmt(fc, stmt{.data = stmt::loop_stmt{cond, loop_body}});
                                       return make_block(fc, {first_body, loop});
                                   },
                                   [ & ](ast::while_stmt &w) -> stmt_id {
@@ -258,10 +230,6 @@ namespace qthu::js2ct::hir {
                                       return make_block(fc, std::move(outer));
                                   },
                                   [ & ](ast::expr_stmt &es) -> stmt_id {
-                                      // Recognized purely syntactically here, not via a call
-                                      // to sema (which already knows not to resolve "assert"
-                                      // as a declared function -- see analysis.hpp's call
-                                      // case).
                                       if (auto *call = std::get_if<ast::call>(&es.value.data)) {
                                           if (auto *callee_var = std::get_if<ast::var>(&call->callee->data);
                                               callee_var && callee_var->name == "assert") {
