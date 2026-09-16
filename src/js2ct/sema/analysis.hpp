@@ -120,10 +120,25 @@ namespace qthu::js2ct::sema {
         std::unordered_map<ast::stmt *, function_id> stmt_functions;
 
         std::string function_name(function_id fid) const {
+            std::string bare;
+            bool found = false;
             for (auto &sym: declarations)
-                if (sym.kind == symbol::kind_t::function && sym.function && sym.function->value == fid.value)
-                    return names.at(sym.name.value);
-            return "<script>"; // the implicit top-level function has no declaring symbol
+                if (sym.kind == symbol::kind_t::function && sym.function && sym.function->value == fid.value) {
+                    bare = names.at(sym.name.value);
+                    found = true;
+                    break;
+                }
+            if (!found)
+                return "<script>"; // the implicit top-level function has no declaring symbol
+
+            int count = 0;
+            for (auto &sym: declarations)
+                if (sym.kind == symbol::kind_t::function && sym.function && names.at(sym.name.value) == bare)
+                    ++count;
+
+            if (count <= 1)
+                return bare;
+            return bare + "_" + std::to_string(fid.value);
         }
     };
 
@@ -132,7 +147,7 @@ namespace qthu::js2ct::sema {
         std::map<std::string, name_id, std::less<> > interned_names;
 
         bool is_in_loop(scope_id current) {
-            std::optional<scope_id> curr_scope_id = current;
+            std::optional curr_scope_id = current;
             while (curr_scope_id) {
                 auto &curr_scope = get_scope(curr_scope_id.value());
                 if (curr_scope.category == scope::kind::loop)
@@ -266,20 +281,6 @@ namespace qthu::js2ct::sema {
                                declare_var(vd, curr_scope);
                            },
                            [ & ](ast::fn_declaration &fd) {
-                               // "__toplevel__" is reserved: the top-level script itself
-                               // always compiles to `structure __toplevel__`
-                               // (linear2cthu.hpp's lowerer) -- a JS function also named
-                               // `__toplevel__` would collide with it (two structures of
-                               // that name in the emitted .ct, which cthuc's reader
-                               // rejects as "already defined", a confusing error that
-                               // doesn't point at the real cause). Reject it here
-                               // instead, with a clear explanation. `main` itself is
-                               // *not* reserved -- that was the original, more easily
-                               // hit collision (the script used to compile to `structure
-                               // main`); renaming the auto-generated structure to
-                               // something no JS identifier can spell (PLAN.md P12)
-                               // closed that gap at the root instead of only rejecting
-                               // it after the fact.
                                if (fd.name == "__toplevel__")
                                    error(s.loc, "'__toplevel__' is a reserved function name -- the top-level "
                                          "script itself compiles to the structure named '__toplevel__', so a "
@@ -418,11 +419,6 @@ namespace qthu::js2ct::sema {
 
                                auto &calle_name = std::get<ast::var>(callee_ptr->data);
 
-                               // assert(...) is a magic, never-declared compiler builtin
-                               // (ast2hir.hpp recognizes it syntactically in statement
-                               // position and lowers it to hir::stmt::assert_stmt instead
-                               // of a real call) -- skip the "must be a declared function"
-                               // check for this one name; just resolve its argument.
                                if (calle_name.name == "assert") {
                                    if (c.args.size() != 1)
                                        error(e.loc, "assert() takes exactly one argument");

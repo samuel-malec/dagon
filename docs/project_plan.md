@@ -15,7 +15,6 @@ zložkou bude podpora inštrukcií toku riadenia programov, teda
 podmienok a cyklov. Opäť bude súčasťou implementácie aj sada testov
 implementovanej funkcionality.
 
-
 Blok 3, august – október:
 Cthulhu -> QuickJS, zodpovedá Samuel Malec:
 V treťom bloku rozšírime podporu pre pamäťový model Cthulhu a pridáme

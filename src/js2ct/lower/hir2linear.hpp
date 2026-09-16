@@ -15,7 +15,10 @@ namespace qthu::js2ct::lin {
             if (auto it = scope.find(bid.value); it != scope.end())
                 return it->second;
 
-            assert(false && "value not found");
+            error("reference to a variable from an enclosing function "
+                  "scope is not supported yet -- only a function's own "
+                  "parameters and locals can be referenced from within it "
+                  "(no closures)");
         }
 
         void declare(sema::binding_id bid, value v) {
@@ -59,16 +62,7 @@ namespace qthu::js2ct::lin {
             return sema::binding_id{next_synth_binding++};
         }
 
-        // Closes the "doesn't see through further nesting" gap documented
-        // on if_data's own definition (linear.hpp): a lowered body's last
-        // instruction counts as "definitely returns" either when it's a
-        // literal `ret_data`, or when it's an `if_data` that's itself
-        // already marked exhaustively_returns -- which composes correctly
-        // for a chain of guard clauses (`if (a) return X; if (b) return Y;
-        // return Z;`), since each inner if's exhaustively_returns is
-        // computed (and set) before its enclosing if ever asks this
-        // question about it.
-        bool instr_always_returns(const instr &i) {
+        static bool instr_always_returns(const instr &i) {
             if (std::holds_alternative<ret_data>(i.data))
                 return true;
             if (auto *id = std::get_if<if_data>(&i.data))
@@ -280,7 +274,7 @@ namespace qthu::js2ct::lin {
         }
 
         //  This doesn't work for the stacks that we return from the procedure
-        void cleanup_env(rename_env &env, std::vector<lin::instr> &sink) {
+        static void cleanup_env(rename_env &env, std::vector<lin::instr> &sink) {
             for (auto &[bid, val]: env.scope)
                 sink.push_back(lin::instr{.data = lin::drop_data{.target = val}});
         }
