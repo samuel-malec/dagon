@@ -96,5 +96,7 @@ namespace qthu::ct2qjs {
         diag read_signature();
 
         diag read_type();
+
+        diag read_string_decl();
     };
 }

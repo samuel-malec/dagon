@@ -26,6 +26,9 @@ namespace qthu::ct2qjs {
                 case token::kw_struct:
                     err = read_structure();
                     break;
+                case token::kw_string:
+                    err = read_string_decl();
+                    break;
                 default:
                     err = error(t, "unexpected token at toplevel");
                     break;
@@ -125,6 +128,20 @@ namespace qthu::ct2qjs {
             return error(name, "type already defined");
 
         prog.get_type(name.data);
+        return nullptr;
+    }
+
+    diag reader::read_string_decl() {
+        auto lit = fetch();
+        auto eol = fetch();
+
+        if (lit.cat != token::str)
+            return error(lit, "expected a string literal");
+
+        if (eol.cat != token::eol)
+            return error(eol, "expected an end of line");
+
+        prog.strings.emplace_back(lit.data);
         return nullptr;
     }
 
@@ -257,9 +274,7 @@ namespace qthu::ct2qjs {
             insn.structure = prog.get(s.data);
             insn.operation = prog.get(o.data);
 
-            if (peek(token::str))
-                insn.literal = std::string(fetch().data);
-            else if (auto err = read_ident_list(insn.in, get_atom(), ""))
+            if (auto err = read_ident_list(insn.in, get_atom(), ""))
                 return err;
 
             if (peek(token::arrow)) {
@@ -269,7 +284,7 @@ namespace qthu::ct2qjs {
 
                 if (insn.out.empty())
                     return error(o, "operation must have at least one output parameter after →");
-            } else if (insn.in.empty() && !insn.literal)
+            } else if (insn.in.empty())
                 return error(o, "operation must have at least one input or output parameter");
 
             if (auto err = require(token::eol))

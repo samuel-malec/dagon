@@ -18,14 +18,14 @@
 
 #include "../js2ct/frontend/parser.hpp"
 #include "../js2ct/sema/analysis.hpp"
-#include "../js2ct/lower/ast2hir.hpp"
-#include "../js2ct/lower/hir2linear.hpp"
-#include "../js2ct/lower/linear2cthu.hpp"
+#include "../js2ct/hir/ast2hir.hpp"
+#include "../js2ct/lin/hir2linear.hpp"
+#include "../js2ct/ct/linear2cthu.hpp"
 #include "../js2ct/printer/pretty_printer.hpp"
 
-#include "../ct2qjs/reader.hpp"
-#include "../ct2qjs/ir.hpp"
-#include "../ct2qjs/codegen.hpp"
+#include "../ct2qjs/frontend/reader.hpp"
+#include "../ct2qjs/ir/ir.hpp"
+#include "../ct2qjs/codegen/codegen.hpp"
 #include "../asm/asmbuilder.hpp"
 
 namespace qthu::wasm {

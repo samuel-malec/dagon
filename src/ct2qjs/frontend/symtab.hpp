@@ -17,6 +17,8 @@ namespace qthu::ct2qjs {
         std::map<atom, signature_t> signatures;
         std::map<atom, structure_t> structures;
 
+        std::vector<std::string> strings;
+
         type_ptr get_type(atom a) { return &types[a]; }
         signature_ptr get_signature(atom a) { return &signatures[a]; }
         structure_ptr get_structure(atom a) { return &structures[a]; }

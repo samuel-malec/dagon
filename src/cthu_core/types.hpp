@@ -43,7 +43,6 @@ namespace qthu::ct2qjs {
         atom operation;
         std::vector<atom> in;
         std::vector<atom> out;
-        std::optional<std::string> literal;
     };
 
     struct function_t {

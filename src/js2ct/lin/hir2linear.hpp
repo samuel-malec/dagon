@@ -19,6 +19,7 @@ namespace qthu::js2ct::lin {
                   "scope is not supported yet -- only a function's own "
                   "parameters and locals can be referenced from within it "
                   "(no closures)");
+            assert( false && "unreachable ");
         }
 
         void declare(sema::binding_id bid, value v) {

@@ -1,14 +1,17 @@
+string "hello"
+string ""
+
 structure main
 (
     run = λ
     (
-        jsvalue cons_str "hello" → s
-        jsvalue cons_str "hello" → t
+        jsvalue cons_str_0 → s
+        jsvalue cons_str_0 → t
         jsvalue eq? s t → c
         jsvalue assert c
 
-        jsvalue cons_str "" → e1
-        jsvalue cons_str "" → e2
+        jsvalue cons_str_1 → e1
+        jsvalue cons_str_1 → e2
         jsvalue eq? e1 e2 → c2
         jsvalue assert c2
     )

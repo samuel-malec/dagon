@@ -244,16 +244,6 @@ namespace qthu::ct2qjs {
             return;
         }
 
-        if (name == "qjs_val_cons_str") {
-            if (!insn.resolved.literal)
-                throw std::runtime_error("qjs_val_cons_str requires a string literal operand");
-
-            uint32_t atom_index = register_atom(*insn.resolved.literal);
-            builder.add_instr(as::push_atom_value_(static_cast<int32_t>(atom_index)));
-            builder.add_instr(as::put_loc_(insn.slots_out[0]));
-            return;
-        }
-
         if (name == "qjs_val_get") {
             binary_insn(insn, as::get_array_el_());
             return;
@@ -287,6 +277,22 @@ namespace qthu::ct2qjs {
 
             if (suffix == "undef") {
                 builder.add_instr(as::undefined_());
+                builder.add_instr(as::put_loc_(insn.slots_out[0]));
+                return;
+            }
+
+            // cons_str_<N>: N indexes the `string "..."`-declared constant
+            // pool (symtab::strings), not a raw literal riding on the
+            // instruction -- see reader.cpp's read_string_decl.
+            if (suffix.starts_with("str_")) {
+                int index{};
+                auto [sptr, sec] = std::from_chars(suffix.data() + 4, suffix.data() + suffix.size(), index);
+
+                if (sec != std::errc() || index < 0 || static_cast<size_t>(index) >= ir.st.strings.size())
+                    throw std::runtime_error(std::string(name) + ": invalid string-pool index");
+
+                uint32_t atom_index = register_atom(ir.st.strings[index]);
+                builder.add_instr(as::push_atom_value_(static_cast<int32_t>(atom_index)));
                 builder.add_instr(as::put_loc_(insn.slots_out[0]));
                 return;
             }

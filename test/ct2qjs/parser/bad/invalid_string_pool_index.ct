@@ -1,0 +1,10 @@
+string "only"
+
+structure main
+(
+    run = λ
+    (
+        jsvalue cons_str_5 → %0
+        jsvalue assert %0
+    )
+)

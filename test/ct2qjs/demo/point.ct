@@ -1,3 +1,6 @@
+string "x"
+string "y"
+
 ; JS:
 ;   function makePoint(x, y) {
 ;       let p = {};
@@ -15,10 +18,10 @@ structure makePoint
     run = λ x y → out
     (
         jsvalue cons_obj → p0
-        jsvalue cons_str "x" → kx
+        jsvalue cons_str_0 → kx
         jsvalue set p0 kx x → p1
 
-        jsvalue cons_str "y" → ky
+        jsvalue cons_str_1 → ky
         jsvalue set p1 ky y → p2
 
         jsvalue move p2 → out
@@ -36,10 +39,10 @@ structure main
         f_jj_j call mkref three four → p
 
         jsvalue dup p → p1 p2
-        jsvalue cons_str "x" → kx
+        jsvalue cons_str_0 → kx
         jsvalue get p1 kx → xval
 
-        jsvalue cons_str "y" → ky
+        jsvalue cons_str_1 → ky
         jsvalue get p2 ky → yval
 
         jsvalue add xval yval → total

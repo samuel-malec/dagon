@@ -7,14 +7,27 @@
 #include "../sema/analysis.hpp"
 
 // TODO: we should have another cthulhu representation that would allow returning multiple values, and then transform this
-// Cthulhu into the representation that packs return arguments into an array and which would be closer to quickJS cthulhu
+// Cthulhu into the representation that packs return arguments into an array and which would be closer to QuickJS
 namespace qthu::js2ct::cthu {
     struct structure_builder {
         std::string struct_name;
         lin::function &fn;
         sema::analysis_result &sema;
+        std::vector<std::string> &strings; // shared module-wide string-constant pool
         structure *curr_struct = nullptr;
         uint32_t next_val = 1;
+
+        // Interns a string constant into the shared pool, deduplicating
+        // repeated literals (the same string used twice reuses one atom
+        // instead of declaring it again) -- returns its index for a
+        // `cons_str_<N>` instruction to reference.
+        size_t intern_string(const std::string &s) {
+            for (size_t i = 0; i < strings.size(); ++i)
+                if (strings[i] == s)
+                    return i;
+            strings.push_back(s);
+            return strings.size() - 1;
+        }
 
         std::vector<std::string> vals2str(const std::vector<lin::value> &vals) {
             std::vector<std::string> res{};
@@ -182,9 +195,8 @@ namespace qthu::js2ct::cthu {
                                        emit(curr_fn, "jsvalue", "cons_undef", {}, {cd.target});
                                },
                                [ & ](lin::str_cons_data &sd) {
-                                   insn new_insn{"jsvalue", "cons_str", {}, args2str({sd.target})};
-                                   new_insn.literal = sd.str;
-                                   curr_fn.body.push_back(std::move(new_insn));
+                                   size_t idx = intern_string(sd.str);
+                                   emit(curr_fn, "jsvalue", "cons_str_" + std::to_string(idx), {}, {sd.target});
                                },
                                [ & ](lin::get_data &gd) {
                                    emit(curr_fn, "jsvalue", "get", {gd.obj, gd.key}, {gd.target});
@@ -229,18 +241,6 @@ namespace qthu::js2ct::cthu {
                                    std::string fsig = call_signature_name(params.size());
 
                                    if (id.exhaustively_returns) {
-                                       // Both branches always `return`: nothing after the if
-                                       // in this block ever executes, so there's nothing to
-                                       // thread forward. Keep the simple, single-"out"
-                                       // shape this case has always used -- each branch's
-                                       // own trailing return already produces "out"
-                                       // locally, and the dispatch's own result becomes the
-                                       // enclosing function's return value one level up
-                                       // (tail position). Packing here would silently break
-                                       // that: the enclosing function would stop having
-                                       // anything literally named "out" in its own body,
-                                       // which is what marks it as producing a value at all
-                                       // (structure_builder::lower(), P2.6).
                                        lower_fn(then_name, id.then_body);
                                        lower_fn(else_name, id.else_body);
                                        curr_struct->functions[then_name].in = params;
@@ -248,15 +248,6 @@ namespace qthu::js2ct::cthu {
                                        curr_struct->functions[else_name].in = params;
                                        curr_struct->functions[else_name].out = {"out"};
                                    } else {
-                                       // Each branch, like loop_data's own branches (P2.5),
-                                       // produces exactly one packed output -- a call can
-                                       // only ever propagate one -- built by packing the
-                                       // branch's live-binding outputs (then_outputs/
-                                       // else_outputs) as trailing instructions appended
-                                       // after the branch's own lowered body (pack_values
-                                       // runs against a throwaway scratch function purely
-                                       // to collect those instructions for use as
-                                       // lower_fn's `extra`).
                                        function then_pack_scratch{};
                                        std::string then_packed = pack_values(
                                            then_pack_scratch, vals2str(id.then_outputs));
@@ -272,11 +263,6 @@ namespace qthu::js2ct::cthu {
                                        curr_struct->functions[else_name].out = {else_packed};
                                    }
 
-                                   // create_frame is unchanged from before this fix: it dups
-                                   // params, calls A/B generically, and joins their two
-                                   // results -- it never cared what its callees' own output
-                                   // name was, only that there's one, so it's correct
-                                   // whether that's plain "out" or a packed array.
                                    function frame_fn = create_frame(params, fsig);
                                    curr_struct->functions[frame_name] = std::move(frame_fn);
 
@@ -447,12 +433,6 @@ namespace qthu::js2ct::cthu {
                                    emit(curr_fn, fsig, "call", outer_call_args, {packed_result});
                                    unpack_values(curr_fn, packed_result, outs);
                                },
-                               // Not currently reachable from the real pipeline: hir2linear.hpp's
-                               // lower_stmt now rejects break/continue with a clear error before
-                               // ever producing one of these (break/continue codegen itself
-                               // remains genuinely unimplemented feature work, Claude.md). Kept
-                               // as harmless no-ops rather than removed, since lin::instr's own
-                               // variant still declares them.
                                [ & ](lin::brk_data &) {
                                },
                                [ & ](lin::cont_data &) {
@@ -472,13 +452,6 @@ namespace qthu::js2ct::cthu {
             lower_fn("run", fn.body);
             curr_struct->functions["run"].in = vals2str(fn.params);
 
-            // ret_data (a direct `return`) and if_data/loop_data's own final tail
-            // call (a `return` inside a branch) both write their result into a
-            // slot literally named "out" -- but only when the function actually
-            // returns something (the top-level script never does). Detect that
-            // by scanning the built body rather than threading a flag through
-            // every lower_fn case, so a void function's "run" keeps an empty
-            // .out (matching reader.cpp: no declared .out means no return value).
             bool produces_out = false;
             for (auto &insn: curr_struct->functions["run"].body)
                 for (auto &o: insn.out)
@@ -498,19 +471,10 @@ namespace qthu::js2ct::cthu {
         cthu::module lower(lin::program &prog) {
             cthu::module mod{};
             for (int i = 0; i < prog.functions.size(); ++i) {
-                // Named __toplevel__, not main: main is what every
-                // hand-written .ct fixture (fib.ct etc.) uses for its own
-                // entry point, and it's also the single most natural name a
-                // JS author reaches for first -- naming the auto-generated
-                // script driver something no JS identifier can spell makes
-                // that collision structurally impossible instead of needing
-                // a dedicated rejection check (see sema/analysis.hpp;
-                // ct2qjs's find_main_id() accepts either name for its own
-                // entry-point lookup).
                 std::string struct_name = i == 0
                                               ? "__toplevel__"
                                               : sema.function_name(prog.functions[i].name);
-                structure_builder sb{struct_name, prog.functions[i], sema};
+                structure_builder sb{struct_name, prog.functions[i], sema, mod.strings};
                 mod.structures.push_back(std::move(sb.lower()));
             }
             return mod;

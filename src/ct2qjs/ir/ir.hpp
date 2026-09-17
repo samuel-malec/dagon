@@ -40,7 +40,6 @@ namespace qthu::ct2qjs {
         uint32_t target_fn_id = std::numeric_limits<uint32_t>::max();
         std::vector<atom> in;
         std::vector<atom> out;
-        std::optional<std::string> literal;
     };
 
     struct lowered_insn {
@@ -221,7 +220,6 @@ namespace qthu::ct2qjs {
                     std::numeric_limits<uint32_t>::max(),
                     insn.in,
                     insn.out,
-                    insn.literal,
                 };
             }
 

@@ -676,9 +676,7 @@ namespace qthu::js2ct::print {
     void print_insn(std::ostream &out, const cthu::insn &i) {
         out << "        " << i.structure << " " << i.operation;
 
-        if (i.literal)
-            out << " \"" << *i.literal << "\"";
-        else if (!i.in.empty()) {
+        if (!i.in.empty()) {
             out << " ";
             print_names(out, i.in);
         }
@@ -718,6 +716,11 @@ namespace qthu::js2ct::print {
     }
 
     void pretty_printer::print_cthu(std::ostream &out, const cthu::module &mod) {
+        for (auto &s: mod.strings)
+            out << "string \"" << s << "\"\n";
+        if (!mod.strings.empty())
+            out << "\n";
+
         for (auto &s: mod.structures)
             print_structure(out, s);
     }

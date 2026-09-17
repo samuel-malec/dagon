@@ -26,6 +26,8 @@ namespace qthu::ct2qjs {
                 cnow = cat::kw_struct;
             if (token_data() == "signature")
                 cnow = cat::kw_sig;
+            if (token_data() == "string")
+                cnow = cat::kw_string;
         }
 
         if (cnow != cat::invalid)

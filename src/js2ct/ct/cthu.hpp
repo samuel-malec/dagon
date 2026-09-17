@@ -25,7 +25,6 @@ namespace qthu::js2ct::cthu {
         name operation;
         std::vector<name> in;
         std::vector<name> out;
-        std::optional<std::string> literal;
     };
 
     struct function {
@@ -50,5 +49,6 @@ namespace qthu::js2ct::cthu {
 
     struct module {
         std::vector<structure> structures;
+        std::vector<std::string> strings;
     };
 } // namespace qthu::js2ct::cthu

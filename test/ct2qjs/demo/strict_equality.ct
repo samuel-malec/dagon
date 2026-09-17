@@ -1,3 +1,5 @@
+string "1"
+
 structure main
 (
     run = λ
@@ -14,12 +16,12 @@ structure main
 
         ; 'eq?' coerces number/string, 'seq?' must not
         jsvalue cons_1     → a2
-        jsvalue cons_str "1" → b2
+        jsvalue cons_str_0 → b2
         jsvalue eq? a2 b2 → r2        ; 1 == "1" (coerced)
         jsvalue assert r2
 
         jsvalue cons_1     → a3
-        jsvalue cons_str "1" → b3
+        jsvalue cons_str_0 → b3
         jsvalue seq? a3 b3 → r3       ; 1 === "1" (not coerced)
         jsvalue not r3    → r4        ; must be false
         jsvalue assert r4

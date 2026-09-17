@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Compiles and runs every .ct fixture under test/ct2qjs/ through ct2qjs and bcrun
+# Compiles and runs every .ct fixture under test/ct2qjs/demo/ through ct2qjs and bcrun
 #
 # Usage: test/run.sh
 # Override the binaries with env vars if they're not in one of the usual
@@ -10,7 +10,7 @@ set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-TEST_DIR="$REPO_ROOT/test/ct2qjs"
+TEST_DIR="$REPO_ROOT/test/ct2qjs/demo"
 PRELUDE_DIR="$REPO_ROOT/src/cthu_core/js_dial"
 
 find_bin()

@@ -28,7 +28,7 @@ namespace qthu::ct2qjs {
     struct token {
         enum cat_t {
             invalid, comment,
-            lambda, kw_struct, kw_sig, kw_type, kw, eol, punct,
+            lambda, kw_struct, kw_sig, kw_type, kw_string, kw, eol, punct,
             ident, arrow, bracket, paren, str
         } cat = invalid;
 
@@ -48,6 +48,7 @@ namespace qthu::ct2qjs {
             case token::kw_type: return stream << "type";
             case token::kw_struct: return stream << "struct";
             case token::kw_sig: return stream << "sig";
+            case token::kw_string: return stream << "string";
             case token::kw: return stream << "kw";
             case token::eol: return stream << "eol";
             case token::punct: return stream << "punct";
