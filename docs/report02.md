@@ -1,28 +1,37 @@
-# Priebežná správa k projektu
+# Priebežná správa k druhému bloku projektu
 
 ## Vypracoval: Samuel Malec
 
-Nasledujúci dokument reprezentuje priebežnú správu projektu: Vývoj prekladačov pre jazyk Cthulhu (MUNI/33/0029/2026).
+Nasledujúci dokument reprezentuje priebežnú správu k druhému bloku projektu: Vývoj prekladačov pre jazyk Cthulhu (MUNI/33/0029/2026).
 
-Zdrojový kód spolu s testami je verejne dostupný na https://github.com/samuel-malec/dagon.
+Zdrojový kód spolu s testami je verejne dostupný na https://github.com/samuel-malec/dagon pod tagom s názvom "blok-2".
 
-Ďalším krokom bol návrh a implementácia potrebných štruktúr na
-reprezentáciu JavaScript programov v jazyku Cthulhu.
-Implementovali sme interné štruktúry a signatúry jazyka Cthulhu,
-ako aj C++ štruktúry na reprezentáciu Cthulhu programov.
-a ich implementácia sa nachádza v src/cthu_core/.
-Po tomto kroku sme vytvorili testovaciu sadu programov v Cthulhu,
-ktorej cieľom je demonštrovať funkcionalitu požadovanú v zadaní
-projektu. Táto sada programov sa nachádza v test/ct2qjs/demo.
+## Postup práce
 
-Následne sme začali implementovať prekladač jazyka Cthulhu do QuickJS,
-ktorého zdrojový kód sa nachádza v src/ct2qjs.
-Začali sme implementáciou syntaktického analyzátoru Cthulhu programov.
-Na tento účel sme si vytvorili potrebné štruktúry a k syntaktickej analýze sme využili techniku rekurzívneho zostupu.
-Testy implementácie syntaktickej analýzy sa nachádzajú v test/ct2qjs/parser/
-Po syntaktickej analýze sme implementovali sémantickú analýzu Cthulhu programov (treba dorobiť typechecker a zaručiť
-lineárne typy...)
-Ďalej sme implementovali generáciu QuickJS bajtkódu.
-Využili sme už vyššie spomenuté rozhranie pre generáciu textového formátu QuickJS bajtkódu a
-pre každú Cthulhu inštrukciu sme vygenerovali korešpondujúci QuickJS bajtkód.
-Pre implementovanú funkcionalitu sme vytvorili sadu testov, ktorá sa nachádza v test/ct2qjs.
+Plynule som nadviazal na funkcionalitu implementovanú v prvom bloku projektu a zameral som sa na rozšírenie funkcionality
+`ct2qjs` - prekladača z Cthulhu do QuickJS bajtkódu - o tok riadenia.
+Po úvodnej rešerši som navrhol reprezentáciu toku riadenia v jazyku Cthulhu a vytvoril sadu
+testovacích, resp. ukážkových programov, ktoré zvolený návrh demonštrujú. Tieto testovacie programy
+sa opäť nachádzajú v `test/ct2qjs/demo`.
+Po zavedení tejto sady programov som upravil syntaktický analyzátor tak, aby bol schopný tieto programy akceptovať.
+V ďalšom kroku som implementoval generáciu kódu pre if-príkazy, ktorú som odtestoval na sade testovacích programov.
+Následne som implementoval generáciu kódu pre cykly. Na testovanie som opäť využil ručne napísané Cthulhu programy,
+ktoré som preložil do QuickJS bajtkódu a spustil.
+
+Keďže testovanie novej funkcionality vyžadovalo ručné písanie Cthulhu programov, začínalo to spomaľovať vývoj projektu.
+Toto bol jeden z hlavných dôvodov, prečo som sa rozhodol nad rámec zadania projektu implementovať `js2ct` - prekladač z podmnožiny
+JavaScriptu do vyvíjaného JavaScript dialektu pre Cthulhu. Zvolená podmnožina JavaScriptu zodpovedá funkcionalite,
+ktorá je popísaná v zadaní projektu, a teda konkrétne som sa zameral na: číselné, pravdivostné a reťazcové literály,
+aritmetické, logické a binárne operácie, premenné s `let` modifikátorom, if-príkazy a while a do-while cykly.
+Pre túto podmnožinu jazyka JavaScript som napísal syntaktický analyzátor, ktorý sa nachádza v `src/js2ct/frontend`.
+Nasledovala implementácia generácie Cthulhu kódu z JavaScript programov, ktorá sa nachádza v `src/js2ct/lin` a `src/js2ct/ct`.
+
+## Testovanie
+
+- rozšírenie `ct2qjs` o tok riadenia som pokryl doplnením ukážkových Cthulhu programov v `test/ct2qjs/demo` (13 programov
+  celkovo, vrátane if-príkazov a cyklov), ktoré som skompiloval a spustil,
+- syntaktický analyzátor `js2ct` je pokrytý 26 testami v `test/js2ct/parser` a 9 testami v `test/js2ct/lexer`,
+- prevod HIR programu do lineárnej reprezentácie (`hir2linear`) je pokrytý 8 testami v `test/js2ct/lower`,
+- pre celý reťazec `js2ct` → `ct2qjs` som zostavil 28 end-to-end JavaScript programov v `test/js2ct/e2e`. Tieto
+  programy som preložil pomocou `js2ct` do Cthulhu a následne pomocou `ct2qjs` do QuickJS bajtkódu. Výsledný
+  QuickJS bajtkód som spustil a pozoroval správanie, ktoré bolo vo všetkých prípadoch totožné s očakávaným.

@@ -12,6 +12,7 @@ Taktiež, dlhodobým cieľom projektu je využitie Cthulhu na statickú analýzu
 Tieto dôvody nás viedli k implementácií funkcionality nad rámec zadania projektu, a to konkrétne k implementácií
 prekladača podmnožiny JavaScript-u do Cthulhu.
 
+TODO: funkcie
 Implementovali sme:
 
 - Číselné, boolovské, reťazcové literály
