@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../asm/asmbuilder.hpp"
-#include "../bytecode/program.hpp"
-#include "ir.hpp"
+#include "../../asm/asmbuilder.hpp"
+#include "../../bytecode/program.hpp"
+#include "../ir/ir.hpp"
 
 #include <format>
 #include <set>
@@ -40,7 +40,7 @@ namespace qthu::ct2qjs {
         }
 
         uint32_t find_main_id() const {
-            // "__toplevel__" is what js2ct names its own auto-generated script driver
+            // "__toplevel__`" is what js2ct names its own auto-generated script driver
             for (const auto &fn: ir.fns) {
                 auto stru_name = ir.st.name_of(fn.key.stru);
                 if ((stru_name == "main" || stru_name == "__toplevel__") && ir.st.name_of(fn.key.op) == "run")

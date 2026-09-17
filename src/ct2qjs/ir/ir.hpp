@@ -8,8 +8,8 @@
 #include <stdexcept>
 #include <vector>
 
-#include "symtab.hpp"
-#include "../cthu_core/types.hpp"
+#include "../frontend/symtab.hpp"
+#include "../../cthu_core/types.hpp"
 
 namespace qthu::ct2qjs {
     struct insn_key {
@@ -91,7 +91,7 @@ namespace qthu::ct2qjs {
                     builtins[{satom, op}] = builtin_name;
         }
 
-        void aloc_slots() {
+        void alloc_slots() {
             for (auto &meta: fns) {
                 std::map<atom, std::vector<uint32_t> > versions;
                 uint32_t next_slot = 0;
@@ -258,7 +258,7 @@ namespace qthu::ct2qjs {
             collect_fns();
             collect_builtins();
             resolve_instructions();
-            aloc_slots();
+            alloc_slots();
         }
 
         void print() const {

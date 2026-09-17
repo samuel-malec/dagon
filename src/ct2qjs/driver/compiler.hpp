@@ -3,9 +3,9 @@
 #include "config.hpp"
 #include "../../asm/asmbuilder.hpp"
 #include "../../common/file.hpp"
-#include "../codegen.hpp"
-#include "../reader.hpp"
-#include "../ir.hpp"
+#include "../codegen/codegen.hpp"
+#include "../frontend/reader.hpp"
+#include "../ir/ir.hpp"
 
 namespace qthu::ct2qjs {
     namespace fs = std::filesystem;

@@ -7,7 +7,7 @@
 
 #include "lexer.hpp"
 #include "symtab.hpp"
-#include "../cthu_core/types.hpp"
+#include "../../cthu_core/types.hpp"
 
 namespace qthu::ct2qjs {
     struct diag_base : brq::refcount_base<> {

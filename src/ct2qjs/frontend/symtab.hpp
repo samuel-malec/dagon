@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "../cthu_core/types.hpp"
+#include "../../cthu_core/types.hpp"
 
 namespace qthu::ct2qjs {
     struct symtab {

@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-#include "../common/utf8.hpp"
+#include "../../common/utf8.hpp"
 
 namespace qthu::ct2qjs {
     struct source_file {

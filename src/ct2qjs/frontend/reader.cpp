@@ -1,4 +1,4 @@
-#include "reader.hpp"
+#include "../reader.hpp"
 
 namespace qthu::ct2qjs {
     diag reader::error(token t, auto... msg) {
