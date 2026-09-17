@@ -37,9 +37,9 @@ add_executable(ct2qjs)
 target_sources(ct2qjs
     PRIVATE
         src/ct2qjs/main.cpp
-        src/ct2qjs/lexer.cpp
-        src/ct2qjs/reader.cpp
-        src/ct2qjs/codegen.cpp
+        src/ct2qjs/frontend/lexer.cpp
+        src/ct2qjs/frontend/reader.cpp
+        src/ct2qjs/codegen/codegen.cpp
     src/asm/asm.cpp
     src/asm/instruction.cpp
     src/asm/directive.cpp
@@ -86,9 +86,9 @@ if (EMSCRIPTEN)
         src/js2ct/frontend/lexer.cpp
         src/js2ct/frontend/parser.cpp
         src/js2ct/printer/pretty_printer.cpp
-        src/ct2qjs/lexer.cpp
-        src/ct2qjs/reader.cpp
-        src/ct2qjs/codegen.cpp
+            src/ct2qjs/frontend/lexer.cpp
+            src/ct2qjs/frontend/reader.cpp
+            src/ct2qjs/codegen/codegen.cpp
         src/asm/asm.cpp
         src/asm/instruction.cpp
         src/asm/directive.cpp
