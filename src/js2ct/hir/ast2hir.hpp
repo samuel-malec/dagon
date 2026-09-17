@@ -5,7 +5,7 @@
 
 #include "../../common/error.hpp"
 #include "../../common/visit.hpp"
-#include "../ir/hir.hpp"
+#include "hir.hpp"
 #include "../sema/analysis.hpp"
 
 namespace qthu::js2ct::hir {

@@ -4,8 +4,8 @@
 
 #include "../../common/error.hpp"
 #include "../../common/visit.hpp"
-#include "../ir/linear.hpp"
-#include "../ir/hir.hpp"
+#include "linear.hpp"
+#include "../hir/hir.hpp"
 
 namespace qthu::js2ct::lin {
     struct rename_env {

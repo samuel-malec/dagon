@@ -1,11 +1,13 @@
 #pragma once
 
 #include "../../common/visit.hpp"
-#include "../ir/cthu.hpp"
-#include "../ir/linear.hpp"
+#include "cthu.hpp"
+#include "../lin/linear.hpp"
 #include "../printer/pretty_printer.hpp"
 #include "../sema/analysis.hpp"
 
+// TODO: we should have another cthulhu representation that would allow returning multiple values, and then transform this
+// Cthulhu into the representation that packs return arguments into an array and which would be closer to quickJS cthulhu
 namespace qthu::js2ct::cthu {
     struct structure_builder {
         std::string struct_name;

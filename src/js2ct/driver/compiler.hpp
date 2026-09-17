@@ -5,11 +5,11 @@
 #include "../../common/file.hpp"
 #include "../frontend/token.hpp"
 #include "../frontend/parser.hpp"
-#include "../ir/hir.hpp"
-#include "../ir/cthu.hpp"
-#include "../lower/ast2hir.hpp"
-#include "../lower/hir2linear.hpp"
-#include "../lower/linear2cthu.hpp"
+#include "../hir/hir.hpp"
+#include "../ct/cthu.hpp"
+#include "../hir/ast2hir.hpp"
+#include "../lin/hir2linear.hpp"
+#include "../ct/linear2cthu.hpp"
 #include "../sema/analysis.hpp"
 
 namespace qthu::js2ct {

@@ -4,9 +4,9 @@
 #include <string>
 
 #include "../frontend/ast.hpp"
-#include "../ir/hir.hpp"
-#include "../ir/linear.hpp"
-#include "../ir/cthu.hpp"
+#include "../hir/hir.hpp"
+#include "../lin/linear.hpp"
+#include "../ct/cthu.hpp"
 #include "../sema/analysis.hpp"
 
 namespace qthu::js2ct::print {
