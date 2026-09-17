@@ -134,18 +134,18 @@ namespace qthu::as {
             switch (item.kind) {
                 case item::instruction:
                     if (!item.instr.address.sym.empty())
-                        result += std::format("    [instruction] {} {}  (size: {})\n", item.instr.mnemonic,
+                        result += std::format("    {} {}  (size: {})\n", item.instr.mnemonic,
                                               item.instr.address.sym, item.size);
                     else {
                         if (item.instr.size == 1)
-                            result += std::format("    [instruction] {} (size: {})\n", item.instr.mnemonic, item.size);
+                            result += std::format("    {} (size: {})\n", item.instr.mnemonic, item.size);
                         else
-                            result += std::format("    [instruction] {} {} (size: {})\n", item.instr.mnemonic,
+                            result += std::format("    {} {} (size: {})\n", item.instr.mnemonic,
                                                   item.instr.operand.as_unsigned(), item.size);
                     }
                     break;
                 case item::label:
-                    result += std::format("  [label] {}:\n", item.name);
+                    result += std::format("  {}:\n", item.name);
                     break;
             }
         }

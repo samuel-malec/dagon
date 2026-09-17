@@ -211,7 +211,6 @@ namespace qthu::js2ct::print {
     }
 
     void pretty_printer::print_ast(std::ostream &out, ast::program &ast) {
-        out << "\n[AST]\n";
         for (auto &s: ast.statements)
             print_ast_stmt(out, *s, 1);
     }
@@ -443,8 +442,6 @@ namespace qthu::js2ct::print {
     }
 
     void pretty_printer::print_lin_program(std::ostream &out, const lin::program &p) {
-        out << "\n[LIN]\n";
-
         for (auto &fn: p.functions)
             print_lin_function(out, fn);
     }
@@ -660,7 +657,6 @@ namespace qthu::js2ct::print {
     }
 
     void pretty_printer::print_hir(std::ostream &out, hir::module &mod, sema::analysis_result &semantics) {
-        out << "\n[HIR]\n";
         print_hir_function(out, mod.script, semantics);
         out << "\n";
 
@@ -687,7 +683,7 @@ namespace qthu::js2ct::print {
             print_names(out, i.in);
         }
         if (!i.out.empty()) {
-            out << " → ";
+            out << " -> ";
             print_names(out, i.out);
         }
         out << "\n";
@@ -701,7 +697,7 @@ namespace qthu::js2ct::print {
             print_names(out, fn.in);
         }
         if (!fn.out.empty()) {
-            out << " → ";
+            out << " -> ";
             print_names(out, fn.out);
         }
         out << "\n    (\n";
@@ -723,6 +719,6 @@ namespace qthu::js2ct::print {
 
     void pretty_printer::print_cthu(std::ostream &out, const cthu::module &mod) {
         for (auto &s: mod.structures)
-            qthu::js2ct::print::print_structure(out, s);
+            print_structure(out, s);
     }
 }
