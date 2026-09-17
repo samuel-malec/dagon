@@ -1,6 +1,6 @@
-#include <format>
+#include "lexer.hpp"
 
-#include "../lexer.hpp"
+#include <format>
 
 namespace qthu::ct2qjs {
     bool lexer::compatible(cat c, char32_t ch) {

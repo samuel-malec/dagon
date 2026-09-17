@@ -1,6 +1,6 @@
 #include <charconv>
 
-#include "../codegen.hpp"
+#include "codegen.hpp"
 
 namespace qthu::ct2qjs {
     void codegen::emit_fn_join(const lowered_insn &insn) {
