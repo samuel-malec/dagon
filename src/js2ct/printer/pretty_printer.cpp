@@ -735,8 +735,4 @@ namespace qthu::js2ct::print {
     void pretty_printer::print_cthu(std::ostream &out, const cthu::module &mod) {
         print_module(out, mod);
     }
-
-    void pretty_printer::print_hicthu(std::ostream &out, const hicthu::module &mod) {
-        print_module(out, mod);
-    }
 }

@@ -4,7 +4,6 @@
 #include <vector>
 
 #include "../cthu.hpp"
-#include "hicthu.hpp"
 
 namespace qthu::js2ct::cthu {
     struct loct_lowerer {
@@ -14,7 +13,7 @@ namespace qthu::js2ct::cthu {
             return prefix + std::to_string(next_tmp++);
         }
 
-        static bool is_signature_op(const hicthu::insn &i) {
+        static bool is_signature_op(const insn &i) {
             return (i.operation == "call" || i.operation == "opt" || i.operation == "join")
                    && i.structure.starts_with("f_");
         }
@@ -61,7 +60,7 @@ namespace qthu::js2ct::cthu {
             }
         }
 
-        function lower_function(const hicthu::function &hi) {
+        function lower_function(const function &hi) {
             function lo{};
             lo.in = hi.in;
 
@@ -104,14 +103,14 @@ namespace qthu::js2ct::cthu {
             return lo;
         }
 
-        structure lower_structure(const hicthu::structure &hi) {
+        structure lower_structure(const structure &hi) {
             structure lo{.id = hi.id};
             for (const auto &[fname, hi_fn]: hi.functions)
                 lo.functions[fname] = lower_function(hi_fn);
             return lo;
         }
 
-        cthu::module lower(const hicthu::module &hi) {
+        cthu::module lower(const module &hi) {
             cthu::module lo{};
             lo.strings = hi.strings;
             for (const auto &s: hi.structures)

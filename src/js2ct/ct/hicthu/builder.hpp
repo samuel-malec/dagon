@@ -6,12 +6,11 @@
 #include <string>
 #include <vector>
 
-#include "hicthu.hpp"
 #include "../../lin/linear.hpp"
 #include "../../printer/pretty_printer.hpp"
 #include "../../sema/analysis.hpp"
 
-namespace qthu::js2ct::hicthu {
+namespace qthu::js2ct::cthu {
     struct structure_builder {
         std::string struct_name;
         lin::function &fn;
@@ -346,13 +345,11 @@ namespace qthu::js2ct::hicthu {
                                        extra.push_back(insn{struct_name, cont_name, {}, {cont_ref}});
                                        extra.push_back(insn{struct_name, exit_name, {}, {exit_ref}});
                                        extra.push_back(insn{struct_name, frame_name, {}, {frame_ref}});
-                                       extra.push_back(insn{fsig, "opt", {cmp1, cont_ref}, {alt1}});
+                                       extra.push_back(insn
+                                       {fsig, "opt", {cmp1, cont_ref}, {alt1}});
                                        extra.push_back(insn{fsig, "opt", {cmp3, exit_ref}, {alt2}});
                                        extra.push_back(insn{fsig, "join", {alt1, alt2, frame_ref}, {joined}});
 
-                                       // Use dispatch_args, not params: cond_body (which just
-                                       // ran, right above) may have already consumed some of
-                                       // loop_name's own declared "in" names via dup.
                                        std::vector call_args{joined};
                                        for (auto &p: vals2str(ld.dispatch_args))
                                            call_args.push_back(p);

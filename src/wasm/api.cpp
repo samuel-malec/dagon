@@ -1,13 +1,3 @@
-// In-browser pipeline explorer for the whole qthu toolchain: takes JS
-// source, runs it through js2ct (JS -> AST -> HIR -> LIN -> Cthulhu) and
-// then ct2qjs (Cthulhu -> QuickJS bytecode), and finally *executes* the
-// resulting bytecode against an embedded QuickJS runtime -- so a viewer
-// sees not just static IR dumps but the actual assert-pass/fail result,
-// the same as running test/explore_js2ct.sh locally. Everything happens
-// in one WASM module; the prelude/builtins .ct files are embedded as
-// string constants at build time (see CMakeLists.txt) so there's no
-// virtual filesystem to set up.
-
 #include <emscripten/bind.h>
 #include <sstream>
 #include <string>
@@ -20,25 +10,23 @@
 #include "../js2ct/sema/analysis.hpp"
 #include "../js2ct/hir/ast2hir.hpp"
 #include "../js2ct/lin/hir2linear.hpp"
-#include "../js2ct/ct/locthu/linear2locthu.hpp"
 #include "../js2ct/printer/pretty_printer.hpp"
 
 #include "../ct2qjs/frontend/reader.hpp"
 #include "../ct2qjs/ir/ir.hpp"
 #include "../ct2qjs/codegen/codegen.hpp"
 #include "../asm/asmbuilder.hpp"
+#include "../js2ct/ct/hicthu/linear2hicthu.hpp"
+#include "../js2ct/ct/locthu/hicthu2locthu.hpp"
 
 namespace qthu::wasm {
     struct pipeline_result {
-        std::string ast, hir, lin, cthu, bytecode;
+        std::string ast, hir, lir, locthu, hicthu, bytecode;
         std::string run_output;
         std::string stage;
         std::string error;
     };
 
-    // Parses one .ct source into `st`, converting ct2qjs's diag-based error
-    // reporting into the same exception-based flow js2ct already uses --
-    // matches ct2qjs's own driver/compiler.hpp (throw_on_diag).
     void parse_ct_into(const std::string &name, const std::string &text, ct2qjs::symtab &st) {
         auto doc = std::make_shared<ct2qjs::source_file>(name, text);
         ct2qjs::reader r{doc, st};
@@ -56,7 +44,7 @@ namespace qthu::wasm {
         js2ct::print::pretty_printer printer{};
 
         try {
-            // ---- js2ct: JS source -> AST -> HIR -> LIN -> Cthulhu ----
+            // ---- js2ct: JS source -> AST -> HIR -> LIN -> HCthu -> LCthu ----
             auto doc = std::make_shared<js2ct::source_file>("<input>", source);
             js2ct::parser p{doc};
             auto ast = p.parse();
@@ -81,27 +69,37 @@ namespace qthu::wasm {
             r.stage = "js2ct: hir";
 
             js2ct::lin::lowerer lin_lowerer{semantics};
-            js2ct::lin::program linear = lin_lowerer.lower(hir_mod);
+            js2ct::lin::program lir = lin_lowerer.lower(hir_mod);
             {
                 std::ostringstream oss;
-                printer.print_lin_program(oss, linear);
-                r.lin = oss.str();
+                printer.print_lin_program(oss, lir);
+                r.lir = oss.str();
             }
-            r.stage = "js2ct: lin";
+            r.stage = "js2ct: lir";
 
-            js2ct::cthu::module ct_mod = js2ct::cthu::lower_to_locthu(linear, semantics);
+            js2ct::hicthu::hict_lowerer hicthu_lowerer{semantics};
+            js2ct::cthu::module hicthu = hicthu_lowerer.lower(lir);
             {
                 std::ostringstream oss;
-                printer.print_cthu(oss, ct_mod);
-                r.cthu = oss.str();
+                printer.print_cthu(oss, hicthu);
+                r.hicthu = oss.str();
             }
-            r.stage = "js2ct: cthu";
+            r.stage = "js2ct: hicthu";
+
+            js2ct::cthu::loct_lowerer locthu_lowerer{};
+            js2ct::cthu::module locthu = locthu_lowerer.lower(hicthu);
+            {
+                std::ostringstream oss;
+                printer.print_cthu(oss, locthu);
+                r.locthu = oss.str();
+            }
+            r.stage = "js2ct: locthu";
 
             // ---- ct2qjs: Cthulhu -> QuickJS bytecode ----
             ct2qjs::symtab st;
             parse_ct_into("prelude.ct", PRELUDE_CT, st);
             parse_ct_into("builtins.ct", BUILTINS_CT, st);
-            parse_ct_into("<generated>", r.cthu, st);
+            parse_ct_into("<generated>", r.locthu, st);
             r.stage = "ct2qjs: parse";
 
             ct2qjs::program ir_prog{st};
@@ -162,15 +160,13 @@ namespace qthu::wasm {
     }
 }
 
-EMSCRIPTEN_BINDINGS(qthu) {
-    // Field names here are what the JS/TS side sees (camelCase, matching
-    // src/lib/qthuModule.ts's PipelineResult) -- independent of the C++
-    // struct's own (snake_case) member names.
+EMSCRIPTEN_BINDINGS (qthu) {
     emscripten::value_object<qthu::wasm::pipeline_result>("PipelineResult")
             .field("ast", &qthu::wasm::pipeline_result::ast)
             .field("hir", &qthu::wasm::pipeline_result::hir)
-            .field("lin", &qthu::wasm::pipeline_result::lin)
-            .field("cthu", &qthu::wasm::pipeline_result::cthu)
+            .field("lir", &qthu::wasm::pipeline_result::lir)
+            .field("locthu", &qthu::wasm::pipeline_result::locthu)
+            .field("hicthu", &qthu::wasm::pipeline_result::hicthu)
             .field("bytecode", &qthu::wasm::pipeline_result::bytecode)
             .field("runOutput", &qthu::wasm::pipeline_result::run_output)
             .field("stage", &qthu::wasm::pipeline_result::stage)

@@ -7,7 +7,6 @@
 #include "../hir/hir.hpp"
 #include "../lin/linear.hpp"
 #include "../ct/cthu.hpp"
-#include "../ct/hicthu/hicthu.hpp"
 #include "../sema/analysis.hpp"
 
 namespace qthu::js2ct::print {
@@ -43,7 +42,5 @@ namespace qthu::js2ct::print {
         void print_hir(std::ostream &out, hir::module &mod, sema::analysis_result &semantics);
 
         void print_cthu(std::ostream &out, const cthu::module &mod);
-
-        void print_hicthu(std::ostream &out, const hicthu::module &mod);
     };
 }

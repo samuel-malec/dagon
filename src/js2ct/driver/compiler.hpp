@@ -9,9 +9,8 @@
 #include "../ct/cthu.hpp"
 #include "../hir/ast2hir.hpp"
 #include "../lin/hir2linear.hpp"
-#include "../ct/hicthu/hicthu.hpp"
-#include "../ct/hicthu/hicthu2locthu.hpp"
-#include "../ct/locthu/linear2hicthu.hpp"
+#include "../ct/locthu/hicthu2locthu.hpp"
+#include "../ct/hicthu/linear2hicthu.hpp"
 #include "../sema/analysis.hpp"
 #include "../../common/progress_reporter.hpp"
 
@@ -62,14 +61,14 @@ namespace qthu::js2ct {
             if (conf.emit_lin)
                 printer.print_lin_program(std::cout, linear);
 
-            hicthu::module hict;
+            cthu::module hict;
             {
                 reporter.time("lowering to hicthu");
                 hicthu::hict_lowerer hicthu_lowerer{semantics};
                 hict = hicthu_lowerer.lower(linear);
             }
             if (conf.emit_hicthu)
-                printer.print_hicthu(std::cout, hict);
+                printer.print_cthu(std::cout, hict);
 
             cthu::module ct;
             {
