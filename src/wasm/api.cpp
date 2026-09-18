@@ -20,7 +20,7 @@
 #include "../js2ct/sema/analysis.hpp"
 #include "../js2ct/hir/ast2hir.hpp"
 #include "../js2ct/lin/hir2linear.hpp"
-#include "../js2ct/ct/linear2cthu.hpp"
+#include "../js2ct/ct/locthu/linear2locthu.hpp"
 #include "../js2ct/printer/pretty_printer.hpp"
 
 #include "../ct2qjs/frontend/reader.hpp"
@@ -89,8 +89,7 @@ namespace qthu::wasm {
             }
             r.stage = "js2ct: lin";
 
-            js2ct::cthu::lowerer cthu_lowerer{semantics};
-            js2ct::cthu::module ct_mod = cthu_lowerer.lower(linear);
+            js2ct::cthu::module ct_mod = js2ct::cthu::lower_to_locthu(linear, semantics);
             {
                 std::ostringstream oss;
                 printer.print_cthu(oss, ct_mod);

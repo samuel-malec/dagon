@@ -9,20 +9,28 @@
 #include "../ct/cthu.hpp"
 #include "../hir/ast2hir.hpp"
 #include "../lin/hir2linear.hpp"
-#include "../ct/linear2cthu.hpp"
+#include "../ct/hicthu/hicthu.hpp"
+#include "../ct/hicthu/hicthu2locthu.hpp"
+#include "../ct/locthu/linear2hicthu.hpp"
 #include "../sema/analysis.hpp"
+#include "../../common/progress_reporter.hpp"
 
 namespace qthu::js2ct {
     struct compiler {
         void run(const config &conf) {
             std::string in_name = conf.file_in;
             std::string out_name = conf.file_out;
-
             source_ptr doc = std::make_shared<source_file>(in_name, read_file(in_name));
-
             print::pretty_printer printer{};
-            parser p{doc};
-            auto ast = p.parse();
+            progress_reporter reporter{};
+
+            ast::program ast;
+            {
+                reporter.time("parsing");
+                parser p{doc};
+                ast = p.parse();
+            }
+
             if (conf.emit_ast)
                 printer.print_ast(std::cout, ast);
 
@@ -30,20 +38,45 @@ namespace qthu::js2ct {
                 return;
 
             sema::analyzer analyzer;
-            auto semantics = analyzer.run(ast);
+            sema::analysis_result semantics;
+            {
+                reporter.time("semantic analysis");
+                semantics = analyzer.run(ast);
+            }
 
             hir::lowerer hir_lowerer{semantics};
-            hir::module hir = hir_lowerer.lower(ast);
+            hir::module hir;
+            {
+                reporter.time("hir lowering");
+                hir = hir_lowerer.lower(ast);
+            }
             if (conf.emit_hir)
                 printer.print_hir(std::cout, hir, semantics);
 
             lin::lowerer lin_lowerer{semantics};
-            lin::program linear = lin_lowerer.lower(hir);
+            lin::program linear;
+            {
+                reporter.time("lin lowering");
+                linear = lin_lowerer.lower(hir);
+            }
             if (conf.emit_lin)
                 printer.print_lin_program(std::cout, linear);
 
-            cthu::lowerer cthu_lowerer{semantics};
-            cthu::module ct = cthu_lowerer.lower(linear);
+            hicthu::module hict;
+            {
+                reporter.time("lowering to hicthu");
+                hicthu::hict_lowerer hicthu_lowerer{semantics};
+                hict = hicthu_lowerer.lower(linear);
+            }
+            if (conf.emit_hicthu)
+                printer.print_hicthu(std::cout, hict);
+
+            cthu::module ct;
+            {
+                reporter.time("lowering to locthu");
+                cthu::loct_lowerer locthu_lowerer{};
+                ct = locthu_lowerer.lower(hict);
+            }
             std::ofstream out(conf.file_out);
             if (!out.is_open())
                 throw std::runtime_error("Couldn't open file at: " + conf.file_out);

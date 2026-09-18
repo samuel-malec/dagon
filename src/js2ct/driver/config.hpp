@@ -14,6 +14,7 @@ namespace qthu::js2ct {
         bool emit_ast;
         bool emit_hir;
         bool emit_cthu;
+        bool emit_hicthu;
         bool emit_lin;
         bool parse_only;
     };
@@ -24,6 +25,7 @@ namespace qthu::js2ct {
                 << "--emit-ast\n"
                 << "--emit-hir\n"
                 << "--emit-linir\n"
+                << "--emit-hict   print the high-level Cthulhu IR (multi-value returns)\n"
                 << "--emit-ct\n"
                 << "--parse-only    stop after parsing (skip sema/HIR/LIN/codegen)\n";
     }
@@ -47,6 +49,7 @@ namespace qthu::js2ct {
 
         bool _emit_ast = false;
         bool _emit_cthu = false;
+        bool _emit_hicthu = false;
         bool _emit_hir = false;
         bool _emit_lin = false;
         bool _parse_only = false;
@@ -72,6 +75,10 @@ namespace qthu::js2ct {
                 _emit_lin = true;
                 continue;
             }
+            if (strcmp(argv[i], "--emit-hict") == 0) {
+                _emit_hicthu = true;
+                continue;
+            }
             if (strcmp(argv[i], "--emit-ct") == 0) {
                 _emit_cthu = true;
                 continue;
@@ -90,6 +97,7 @@ namespace qthu::js2ct {
             .emit_ast = _emit_ast,
             .emit_hir = _emit_hir,
             .emit_cthu = _emit_cthu,
+            .emit_hicthu = _emit_hicthu,
             .emit_lin = _emit_lin,
             .parse_only = _parse_only
         };

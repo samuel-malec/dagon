@@ -673,7 +673,11 @@ namespace qthu::js2ct::print {
         }
     }
 
-    void print_insn(std::ostream &out, const cthu::insn &i) {
+    // hicthu and locthu share a surface syntax -- they differ only in how many
+    // names a function or a call may put after the arrow -- so one set of
+    // templates prints both.
+    template<typename Insn>
+    void print_insn(std::ostream &out, const Insn &i) {
         out << "        " << i.structure << " " << i.operation;
 
         if (!i.in.empty()) {
@@ -687,7 +691,8 @@ namespace qthu::js2ct::print {
         out << "\n";
     }
 
-    void print_function(std::ostream &out, const cthu::name &fname, const cthu::function &fn) {
+    template<typename Fn>
+    void print_function(std::ostream &out, const std::string &fname, const Fn &fn) {
         out << "    " << fname << " = λ";
 
         if (!fn.in.empty()) {
@@ -706,7 +711,8 @@ namespace qthu::js2ct::print {
         out << "    )\n";
     }
 
-    void print_structure(std::ostream &out, const cthu::structure &s) {
+    template<typename Struct>
+    void print_structure(std::ostream &out, const Struct &s) {
         out << "structure " << s.id << "\n(\n";
 
         for (auto &[fname, fn]: s.functions)
@@ -715,7 +721,8 @@ namespace qthu::js2ct::print {
         out << ")\n";
     }
 
-    void pretty_printer::print_cthu(std::ostream &out, const cthu::module &mod) {
+    template<typename Module>
+    void print_module(std::ostream &out, const Module &mod) {
         for (auto &s: mod.strings)
             out << "string \"" << s << "\"\n";
         if (!mod.strings.empty())
@@ -723,5 +730,13 @@ namespace qthu::js2ct::print {
 
         for (auto &s: mod.structures)
             print_structure(out, s);
+    }
+
+    void pretty_printer::print_cthu(std::ostream &out, const cthu::module &mod) {
+        print_module(out, mod);
+    }
+
+    void pretty_printer::print_hicthu(std::ostream &out, const hicthu::module &mod) {
+        print_module(out, mod);
     }
 }

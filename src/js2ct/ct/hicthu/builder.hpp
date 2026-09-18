@@ -1,14 +1,17 @@
 #pragma once
 
-#include "../../common/visit.hpp"
-#include "cthu.hpp"
-#include "../lin/linear.hpp"
-#include "../printer/pretty_printer.hpp"
-#include "../sema/analysis.hpp"
+#include <cstddef>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
-// TODO: we should have another cthulhu representation that would allow returning multiple values, and then transform this
-// Cthulhu into the representation that packs return arguments into an array and which would be closer to QuickJS
-namespace qthu::js2ct::cthu {
+#include "hicthu.hpp"
+#include "../../lin/linear.hpp"
+#include "../../printer/pretty_printer.hpp"
+#include "../../sema/analysis.hpp"
+
+namespace qthu::js2ct::hicthu {
     struct structure_builder {
         std::string struct_name;
         lin::function &fn;
@@ -17,7 +20,7 @@ namespace qthu::js2ct::cthu {
         structure *curr_struct = nullptr;
         uint32_t next_val = 1;
 
-        size_t intern_string(const std::string &s) {
+        size_t intern_string(const std::string &s) const {
             for (size_t i = 0; i < strings.size(); ++i)
                 if (strings[i] == s)
                     return i;
@@ -25,7 +28,7 @@ namespace qthu::js2ct::cthu {
             return strings.size() - 1;
         }
 
-        std::vector<std::string> vals2str(const std::vector<lin::value> &vals) {
+        static std::vector<std::string> vals2str(const std::vector<lin::value> &vals) {
             std::vector<std::string> res{};
             print::pretty_printer pp{};
             for (auto &val: vals) {
@@ -36,7 +39,7 @@ namespace qthu::js2ct::cthu {
             return res;
         }
 
-        std::vector<std::string> args2str(const std::vector<lin::argument> &args) {
+        static std::vector<std::string> args2str(const std::vector<lin::argument> &args) {
             std::vector<std::string> res{};
             print::pretty_printer pp{};
             for (auto &arg: args) {
@@ -48,11 +51,11 @@ namespace qthu::js2ct::cthu {
             return res;
         }
 
-        void emit(function &fn,
-                  std::string structure,
-                  std::string op,
-                  std::vector<std::string> in,
-                  std::vector<std::string> out) {
+        static void emit(function &fn,
+                         std::string structure,
+                         std::string op,
+                         std::vector<std::string> in,
+                         std::vector<std::string> out) {
             fn.body.push_back(insn{structure, op, std::move(in), std::move(out)});
         }
 
@@ -64,7 +67,7 @@ namespace qthu::js2ct::cthu {
             fn.body.push_back(insn{structure, op, std::move(args2str(in)), std::move(args2str(out))});
         }
 
-        std::string op_to_str(op_kind op) {
+        static std::string op_to_str(op_kind op) {
             switch (op) {
                 case ADD: return "add";
                 case SUB: return "sub";
@@ -109,72 +112,58 @@ namespace qthu::js2ct::cthu {
             return std::string(1, c) + std::to_string(k);
         }
 
-        std::string call_signature_name(size_t n) {
-            return "f_" + compact_run('j', n) + "_j";
-        }
-
-        std::string pack_values(function &fn, const std::vector<std::string> &values) {
-            std::string cur = fresh_val("arr");
-            emit(fn, "jsvalue", "cons_arr", {}, {cur});
-            for (size_t k = 0; k < values.size(); ++k) {
-                std::string key = fresh_val("k");
-                emit(fn, "jsvalue", "cons_" + std::to_string(k), {}, {key});
-                std::string next = fresh_val("arr");
-                emit(fn, "jsvalue", "set", {cur, key, values[k]}, {next});
-                cur = next;
-            }
-            return cur;
-        }
-
-        void unpack_values(function &fn, const std::string &packed, const std::vector<std::string> &targets) {
-            std::string cur = packed;
-            for (size_t k = 0; k < targets.size(); ++k) {
-                std::string src = cur;
-                if (k + 1 < targets.size()) {
-                    std::string a = fresh_val("u");
-                    std::string b = fresh_val("u");
-                    emit(fn, "jsvalue", "dup", {cur}, {a, b});
-                    src = a;
-                    cur = b;
-                }
-                std::string key = fresh_val("k");
-                emit(fn, "jsvalue", "cons_" + std::to_string(k), {}, {key});
-                emit(fn, "jsvalue", "get", {src, key}, {targets[k]});
-            }
+        // f_<inputs>_<outputs>, e.g. f_j3_j2 takes three jsvalues and returns two.
+        // locthu collapses every one of these to a single-output signature.
+        std::string call_signature_name(size_t n_in, size_t n_out) {
+            return "f_" + compact_run('j', n_in) + "_" + compact_run('j', n_out);
         }
 
         std::string fresh_val(std::string prefix) {
             return prefix + std::to_string(next_val++);
         }
 
-        function create_frame(const std::vector<std::string> &params, std::string fsig) {
-            function res{};
-            res.out = {"out"};
-            std::vector<std::string> param_names;
-            param_names.push_back("A");
-            param_names.push_back("B");
-            for (auto &s: params)
-                param_names.push_back(s);
-
-            res.in = std::move(param_names);
-            std::vector<std::string> dup_first{"A"};
-            std::vector<std::string> dup_second{"B"};
-
-            for (int i = 2; i < res.in.size(); ++i) {
-                std::string fst = res.in[i] + "_1";
-                std::string snd = res.in[i] + std::string("_2");
-                dup_first.push_back(fst);
-                dup_second.push_back(snd);
-                emit(res, "jsvalue", "dup", {res.in[i]}, {fst, snd});
-            }
-
-            emit(res, fsig, "call", std::move(dup_first), {"out1"});
-            emit(res, fsig, "call", std::move(dup_second), {"out2"});
-            emit(res, "jsvalue", "join", {"out1", "out2"}, {"out"});
+        std::vector<std::string> fresh_vals(std::string prefix, size_t n) {
+            std::vector<std::string> res;
+            for (size_t k = 0; k < n; ++k)
+                res.push_back(fresh_val(prefix));
             return res;
         }
 
-        void lower_fn(std::string name, std::vector<lin::instr> &ins, std::vector<cthu::insn> extra = {}) {
+        // The frame is the operand `join` falls back on when both alternatives
+        // survive: it runs both and merges them result-by-result.
+        function create_frame(const std::vector<std::string> &params, const std::string &fsig, size_t n_out) {
+            function res{};
+            std::vector<std::string> param_names{"A", "B"};
+            for (auto &s: params)
+                param_names.push_back(s);
+            res.in = param_names;
+
+            std::vector<std::string> call_a{"A"};
+            std::vector<std::string> call_b{"B"};
+
+            for (size_t i = 2; i < res.in.size(); ++i) {
+                std::string fst = res.in[i] + "_1";
+                std::string snd = res.in[i] + "_2";
+                call_a.push_back(fst);
+                call_b.push_back(snd);
+                emit(res, "jsvalue", "dup", {res.in[i]}, {fst, snd});
+            }
+
+            std::vector<std::string> outs_a = fresh_vals("fa", n_out);
+            std::vector<std::string> outs_b = fresh_vals("fb", n_out);
+            std::vector<std::string> outs = fresh_vals("fo", n_out);
+
+            emit(res, fsig, "call", call_a, outs_a);
+            emit(res, fsig, "call", call_b, outs_b);
+
+            for (size_t k = 0; k < n_out; ++k)
+                emit(res, "jsvalue", "join", {outs_a[k], outs_b[k]}, {outs[k]});
+
+            res.out = outs;
+            return res;
+        }
+
+        void lower_fn(std::string name, std::vector<lin::instr> &ins, std::vector<insn> extra = {}) {
             function curr_fn{};
 
             for (auto &i: ins) {
@@ -232,38 +221,30 @@ namespace qthu::js2ct::cthu {
                                    std::string frame_name = fresh_val("frame");
 
                                    std::vector<std::string> params = vals2str(id.params);
-                                   std::string fsig = call_signature_name(params.size());
+                                   std::vector<std::string> outs = vals2str(id.outputs);
 
-                                   if (id.exhaustively_returns) {
-                                       lower_fn(then_name, id.then_body);
-                                       lower_fn(else_name, id.else_body);
-                                       curr_struct->functions[then_name].in = params;
-                                       curr_struct->functions[then_name].out = {"out"};
-                                       curr_struct->functions[else_name].in = params;
-                                       curr_struct->functions[else_name].out = {"out"};
-                                   } else {
-                                       function then_pack_scratch{};
-                                       std::string then_packed = pack_values(
-                                           then_pack_scratch, vals2str(id.then_outputs));
-                                       lower_fn(then_name, id.then_body, then_pack_scratch.body);
-                                       curr_struct->functions[then_name].in = params;
-                                       curr_struct->functions[then_name].out = {then_packed};
+                                   // An exhaustive if returns out of the enclosing function, so both
+                                   // branches hand back the single `out` value; otherwise each branch
+                                   // hands back the bindings the if is live in.
+                                   std::vector<std::string> results = id.exhaustively_returns
+                                                                          ? std::vector<std::string>{"out"}
+                                                                          : outs;
+                                   std::string fsig = call_signature_name(params.size(), results.size());
 
-                                       function else_pack_scratch{};
-                                       std::string else_packed = pack_values(
-                                           else_pack_scratch, vals2str(id.else_outputs));
-                                       lower_fn(else_name, id.else_body, else_pack_scratch.body);
-                                       curr_struct->functions[else_name].in = params;
-                                       curr_struct->functions[else_name].out = {else_packed};
-                                   }
+                                   lower_fn(then_name, id.then_body);
+                                   curr_struct->functions[then_name].in = params;
+                                   curr_struct->functions[then_name].out = id.exhaustively_returns
+                                                                               ? results
+                                                                               : vals2str(id.then_outputs);
 
-                                   function frame_fn = create_frame(params, fsig);
-                                   curr_struct->functions[frame_name] = std::move(frame_fn);
+                                   lower_fn(else_name, id.else_body);
+                                   curr_struct->functions[else_name].in = params;
+                                   curr_struct->functions[else_name].out = id.exhaustively_returns
+                                                                               ? results
+                                                                               : vals2str(id.else_outputs);
 
-                                   // Reference each sibling closure by name before using it
-                                   // as an opt/join operand -- struct_name callee_name -> ref
-                                   // is the fn_ref idiom (matches loop_data's own loop_ref/
-                                   // frame_ref).
+                                   curr_struct->functions[frame_name] = create_frame(params, fsig, results.size());
+
                                    std::string then_ref = fresh_val("ref");
                                    std::string else_ref = fresh_val("ref");
                                    std::string frame_ref = fresh_val("ref");
@@ -283,13 +264,7 @@ namespace qthu::js2ct::cthu {
                                    for (auto &p: params)
                                        call_args.push_back(p);
 
-                                   if (id.exhaustively_returns)
-                                       emit(curr_fn, fsig, "call", call_args, {"out"});
-                                   else {
-                                       std::string packed_result = fresh_val("packed");
-                                       emit(curr_fn, fsig, "call", call_args, {packed_result});
-                                       unpack_values(curr_fn, packed_result, vals2str(id.outputs));
-                                   }
+                                   emit(curr_fn, fsig, "call", call_args, results);
                                },
                                // todo: we should probably stop codegen of curr_fn after hitting return because everything that follows is dead code,
                                [ & ](lin::ret_data &r) {
@@ -305,7 +280,7 @@ namespace qthu::js2ct::cthu {
                                    std::string f_ref = fresh_val("f_ref");
                                    emit(curr_fn, callee_struct, "run", {}, {f_ref});
 
-                                   std::string fsig = call_signature_name(c.args.size());
+                                   std::string fsig = call_signature_name(c.args.size(), 1);
                                    std::vector<std::string> call_args{f_ref};
                                    for (auto &a: args2str(c.args))
                                        call_args.push_back(std::move(a));
@@ -315,25 +290,21 @@ namespace qthu::js2ct::cthu {
                                [ & ](lin::loop_data &ld) {
                                    std::vector<std::string> params = vals2str(ld.params);
                                    std::vector<std::string> outs = vals2str(ld.outputs);
-                                   std::string fsig = call_signature_name(params.size());
+
+                                   // A loop hands back exactly the bindings it carries.
+                                   std::string fsig = call_signature_name(params.size(), params.size());
 
                                    std::string loop_name = fresh_val("loop");
                                    std::string cont_name = fresh_val("loopbody");
                                    std::string exit_name = fresh_val("loopexit");
                                    std::string frame_name = fresh_val("loopframe");
 
-                                   // Every closure below has exactly one output: a call can only ever
-                                   // propagate insn.slots_out[0] (QuickJS functions return a single
-                                   // value), so a loop's N live bindings travel packed into one array
-                                   // (pack_values) and are unpacked (unpack_values) only where an
-                                   // individual binding is actually needed again — after the outer call.
-
-                                   // exit branch: pack the loop's live params straight through as the result.
+                                   // exit branch: the live params are the loop's result, so they
+                                   // travel straight through with nothing to do.
                                    {
-                                       cthu::function exit_fn{};
+                                       function exit_fn{};
                                        exit_fn.in = params;
-                                       std::string packed = pack_values(exit_fn, params);
-                                       exit_fn.out = {packed};
+                                       exit_fn.out = params;
                                        curr_struct->functions[exit_name] = std::move(exit_fn);
                                    }
 
@@ -345,41 +316,17 @@ namespace qthu::js2ct::cthu {
                                        for (auto &p: vals2str(ld.next_params))
                                            rec_args.push_back(p);
 
+                                       std::vector<std::string> body_outs = fresh_vals("lb", params.size());
                                        std::vector<insn> extra;
                                        extra.push_back(insn{struct_name, loop_name, {}, {self_ref}});
-                                       extra.push_back(insn{fsig, "call", rec_args, {"packed"}});
+                                       extra.push_back(insn{fsig, "call", rec_args, body_outs});
 
                                        lower_fn(cont_name, ld.body, extra);
                                        curr_struct->functions[cont_name].in = params;
-                                       curr_struct->functions[cont_name].out = {"packed"};
+                                       curr_struct->functions[cont_name].out = body_outs;
                                    }
 
-                                   // frame: dup each param for both branches, call both (one always
-                                   // hits the opt'd-out "bot" closure), join the two packed results.
-                                   {
-                                       function frame_fn{};
-                                       std::vector<std::string> frame_in{"A", "B"};
-                                       for (auto &p: params)
-                                           frame_in.push_back(p);
-                                       frame_fn.in = frame_in;
-
-                                       std::vector<std::string> dup_first{"A"}, dup_second{"B"};
-                                       for (size_t k = 2; k < frame_in.size(); ++k) {
-                                           std::string fst = frame_in[k] + "_1", snd = frame_in[k] + "_2";
-                                           dup_first.push_back(fst);
-                                           dup_second.push_back(snd);
-                                           frame_fn.body.push_back(insn{"jsvalue", "dup", {frame_in[k]}, {fst, snd}});
-                                       }
-
-                                       std::string packed1 = fresh_val("p1"), packed2 = fresh_val("p2");
-                                       frame_fn.body.push_back(insn{fsig, "call", dup_first, {packed1}});
-                                       frame_fn.body.push_back(insn{fsig, "call", dup_second, {packed2}});
-                                       std::string packed = fresh_val("packed");
-                                       frame_fn.body.push_back(insn{"jsvalue", "join", {packed1, packed2}, {packed}});
-                                       frame_fn.out = {packed};
-
-                                       curr_struct->functions[frame_name] = std::move(frame_fn);
-                                   }
+                                   curr_struct->functions[frame_name] = create_frame(params, fsig, params.size());
 
                                    // loop_name: the self-recursive dispatcher. Re-runs cond_body and
                                    // the opt/join/call dispatch on *every* call, initial or recursive.
@@ -391,6 +338,7 @@ namespace qthu::js2ct::cthu {
                                                    "ref");
                                        std::string alt1 = fresh_val("alt"), alt2 = fresh_val("alt"), joined = fresh_val(
                                            "cont");
+                                       std::vector<std::string> loop_outs = fresh_vals("lp", params.size());
 
                                        std::vector<insn> extra;
                                        extra.push_back(insn{"jsvalue", "dup", args2str({ld.cond}), {cmp1, cmp2}});
@@ -408,24 +356,22 @@ namespace qthu::js2ct::cthu {
                                        std::vector call_args{joined};
                                        for (auto &p: vals2str(ld.dispatch_args))
                                            call_args.push_back(p);
-                                       extra.push_back(insn{fsig, "call", call_args, {"packed"}});
+                                       extra.push_back(insn{fsig, "call", call_args, loop_outs});
 
                                        lower_fn(loop_name, ld.cond_body, extra);
                                        curr_struct->functions[loop_name].in = params;
-                                       curr_struct->functions[loop_name].out = {"packed"};
+                                       curr_struct->functions[loop_name].out = loop_outs;
                                    }
 
-                                   // back in the enclosing function: reference loop_name, call it with
-                                   // the current live params, then unpack the single packed result
-                                   // back into the individual bindings the rest of the function expects.
+                                   // back in the enclosing function: reference loop_name and call it
+                                   // with the current live params -- the bindings the rest of the
+                                   // function expects come straight back out of the call.
                                    std::string loop_ref = fresh_val("ref");
                                    emit(curr_fn, struct_name, loop_name, {}, {loop_ref});
                                    std::vector outer_call_args{loop_ref};
                                    for (auto &p: params)
                                        outer_call_args.push_back(p);
-                                   std::string packed_result = fresh_val("packed");
-                                   emit(curr_fn, fsig, "call", outer_call_args, {packed_result});
-                                   unpack_values(curr_fn, packed_result, outs);
+                                   emit(curr_fn, fsig, "call", outer_call_args, outs);
                                },
                                [ & ](lin::brk_data &) {
                                },
@@ -456,22 +402,6 @@ namespace qthu::js2ct::cthu {
                 curr_struct->functions["run"].out = {"out"};
 
             return *curr_struct;
-        }
-    };
-
-    struct lowerer {
-        sema::analysis_result &sema;
-
-        cthu::module lower(lin::program &prog) {
-            cthu::module mod{};
-            for (int i = 0; i < prog.functions.size(); ++i) {
-                std::string struct_name = i == 0
-                                              ? "__toplevel__"
-                                              : sema.function_name(prog.functions[i].name);
-                structure_builder sb{struct_name, prog.functions[i], sema, mod.strings};
-                mod.structures.push_back(std::move(sb.lower()));
-            }
-            return mod;
         }
     };
 }
