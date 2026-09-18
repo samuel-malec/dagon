@@ -5,8 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Emulator of an assembler with qjs-like opcodes
-add_executable(qasm
-        src/common/progress_reporter.hpp)
+add_executable(qasm)
 include(cmake/quickjs.cmake)
 target_sources(qasm
         PRIVATE
@@ -22,8 +21,7 @@ target_link_libraries(qasm
 )
 
 # qjs bytecode runner
-add_executable(bcrun
-        src/common/progress_reporter.hpp)
+add_executable(bcrun)
 target_sources(bcrun
         PRIVATE
         src/bcrun.c
@@ -35,8 +33,7 @@ target_link_libraries(bcrun
 )
 
 # Compiler from cthu to qjs bytecode
-add_executable(ct2qjs
-        src/common/progress_reporter.hpp)
+add_executable(ct2qjs)
 target_sources(ct2qjs
         PRIVATE
         src/ct2qjs/main.cpp
