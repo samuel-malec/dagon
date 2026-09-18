@@ -17,10 +17,6 @@ namespace qthu::js2ct::cthu {
         structure *curr_struct = nullptr;
         uint32_t next_val = 1;
 
-        // Interns a string constant into the shared pool, deduplicating
-        // repeated literals (the same string used twice reuses one atom
-        // instead of declaring it again) -- returns its index for a
-        // `cons_str_<N>` instruction to reference.
         size_t intern_string(const std::string &s) {
             for (size_t i = 0; i < strings.size(); ++i)
                 if (strings[i] == s)
@@ -91,11 +87,9 @@ namespace qthu::js2ct::cthu {
                 case BXOR: return "bxor";
                 case BNOT: return "bnot";
                 case AND:
+                    break;
                 case OR:
-                    throw std::runtime_error(
-                        "'&&'/'||' are not supported yet -- they need short-circuit "
-                        "lowering (the same hoisting non-tail 'if' uses), not a plain "
-                        "binary op; see Claude.md's 'not yet covered' list");
+                    break;
             }
 
             throw std::runtime_error("op_to_str: unhandled op_kind");
