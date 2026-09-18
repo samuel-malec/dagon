@@ -10,16 +10,17 @@
 namespace qthu::js2ct::lin {
     struct rename_env {
         std::unordered_map<std::uint32_t, value> scope;
+        bool consumed = false;
 
         value &at(sema::binding_id bid) {
             if (auto it = scope.find(bid.value); it != scope.end())
                 return it->second;
 
             error("reference to a variable from an enclosing function "
-                  "scope is not supported yet -- only a function's own "
-                  "parameters and locals can be referenced from within it "
-                  "(no closures)");
-            assert( false && "unreachable ");
+                "scope is not supported yet -- only a function's own "
+                "parameters and locals can be referenced from within it "
+                "(no closures)");
+            assert(false && "unreachable ");
         }
 
         void declare(sema::binding_id bid, value v) {
@@ -276,6 +277,9 @@ namespace qthu::js2ct::lin {
 
         //  This doesn't work for the stacks that we return from the procedure
         static void cleanup_env(rename_env &env, std::vector<lin::instr> &sink) {
+            if (env.consumed)
+                return;
+
             for (auto &[bid, val]: env.scope)
                 sink.push_back(lin::instr{.data = lin::drop_data{.target = val}});
         }
@@ -287,8 +291,15 @@ namespace qthu::js2ct::lin {
                                lower_expr(sink, env, es.expr);
                            },
                            [ & ](const hir::stmt::block &b) {
-                               for (auto sub: b.stmts)
+                               for (auto sub: b.stmts) {
                                    lower_stmt(sink, env, sub);
+
+                                   // Anything after a statement that always returns is
+                                   // unreachable, and lowering it would reference values
+                                   // the return path already consumed.
+                                   if (!sink.empty() && instr_always_returns(sink.back()))
+                                       break;
+                               }
                            },
                            [ & ](const hir::stmt::let_stmt &ls) {
                                value v;
@@ -348,6 +359,10 @@ namespace qthu::js2ct::lin {
                                            .exhaustively_returns = true,
                                        }
                                    });
+
+                                   // The dispatch call above took the whole scope
+                                   // as its arguments.
+                                   env.consumed = true;
                                } else {
                                    std::vector<value> then_outputs{};
                                    for (auto &bid: live_bindings)

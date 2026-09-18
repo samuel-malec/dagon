@@ -205,7 +205,7 @@ namespace qthu::js2ct::cthu {
                                    emit(curr_fn, "jsvalue", "dup", {dd.arg1}, {dd.first, dd.second});
                                },
                                [ & ](lin::drop_data &dr) {
-                                   emit(curr_fn, "jsvalue", "drop", {}, {dr.target});
+                                   emit(curr_fn, "jsvalue", "drop", {dr.target}, {});
                                },
                                [ & ](lin::if_data &id) {
                                    std::string cmp1 = fresh_val("cmp");
