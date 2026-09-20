@@ -166,7 +166,6 @@ namespace qthu::js2ct::hir {
                                   [ & ](ast::var_declaration &vd) -> stmt_id {
                                       std::vector<stmt_id> out;
                                       for (auto &dec: vd.declarators) {
-                                          // `let x;` (no initializer) means `let x = undefined;`,
                                           std::optional<expr_id> value;
                                           if (dec.init)
                                               value = lower_expr(fc, dec.init.value());

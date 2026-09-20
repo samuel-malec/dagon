@@ -1,4 +1,5 @@
 #include <charconv>
+#include <limits>
 
 #include "codegen.hpp"
 
@@ -281,9 +282,6 @@ namespace qthu::ct2qjs {
                 return;
             }
 
-            // cons_str_<N>: N indexes the `string "..."`-declared constant
-            // pool (symtab::strings), not a raw literal riding on the
-            // instruction -- see reader.cpp's read_string_decl.
             if (suffix.starts_with("str_")) {
                 int index{};
                 auto [sptr, sec] = std::from_chars(suffix.data() + 4, suffix.data() + suffix.size(), index);
@@ -297,15 +295,19 @@ namespace qthu::ct2qjs {
                 return;
             }
 
-            int result{};
+            uint64_t result{};
             auto [ptr, ec] = std::from_chars(name.data() + offset, name.data() + name.size(), result);
 
             if (ec == std::errc::invalid_argument)
                 throw std::runtime_error(std::string(name) + std::string(" argument of cons_ is not a number"));
-            if (ec == std::errc()) {
-                builder.add_instr(as::push_i32_(result));
-                builder.add_instr(as::put_loc_(insn.slots_out[0]));
-            }
+            if (ec == std::errc::result_out_of_range ||
+                result > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()))
+                throw std::runtime_error(
+                    std::string(name) + ": numeric literal is out of range for the current i32-only "
+                    "encoding (max " + std::to_string(std::numeric_limits<int32_t>::max()) + ")");
+
+            builder.add_instr(as::push_i32_(static_cast<int32_t>(result)));
+            builder.add_instr(as::put_loc_(insn.slots_out[0]));
 
             return;
         }

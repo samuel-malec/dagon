@@ -88,6 +88,47 @@ namespace qthu::ct2qjs {
             return captures;
         }
 
+        void emit_insn(uint32_t owner_fn_id, const lowered_insn &insn, uint32_t insn_uid) {
+            using namespace qthu::as;
+            switch (insn.resolved.kind) {
+                case resolved_insn::kind_t::builtin:
+                    emit_builtin(insn, insn_uid);
+                    break;
+
+                case resolved_insn::kind_t::fn_ref: {
+                    const uint32_t target_id = insn.resolved.target_fn_id;
+                    auto it = fn_capture_idx[owner_fn_id].find(target_id);
+                    if (it == fn_capture_idx[owner_fn_id].end())
+                        throw std::runtime_error("missing capture");
+
+                    builder.add_instr(get_var_ref_(it->second));
+                    builder.add_instr(put_loc_(insn.slots_out[0]));
+                    break;
+                }
+
+                case resolved_insn::kind_t::fn_call: {
+                    const uint16_t argc = static_cast<uint16_t>(insn.slots_in.size() - 1);
+                    builder.add_instr(get_loc_(insn.slots_in[0]));
+                    for (size_t i = 1; i < insn.slots_in.size(); ++i)
+                        builder.add_instr(get_loc_(insn.slots_in[i]));
+
+                    builder.add_instr(call_(argc));
+                    builder.add_instr(put_loc_(insn.slots_out[0]));
+                    break;
+                }
+
+                case resolved_insn::kind_t::fn_opt: {
+                    emit_fn_opt(insn);
+                    break;
+                }
+
+                case resolved_insn::kind_t::fn_join: {
+                    emit_fn_join(insn);
+                    break;
+                }
+            }
+        }
+
         void gen_fn(const fn_meta &fn) {
             using namespace qthu::as;
             const uint32_t fn_bc_idx = 1 + fn.id;
@@ -127,45 +168,7 @@ namespace qthu::ct2qjs {
             uint32_t insn_uid = 0;
             for (const lowered_insn &insn: fn.lowered) {
                 ++insn_uid;
-                switch (insn.resolved.kind) {
-                    case resolved_insn::kind_t::builtin:
-                        emit_builtin(insn, insn_uid);
-                        break;
-
-                    case resolved_insn::kind_t::fn_ref: {
-                        const uint32_t target_id = insn.resolved.target_fn_id;
-                        auto it = fn_capture_idx[fn.id].find(target_id);
-                        if (it == fn_capture_idx[fn.id].end())
-                            throw std::runtime_error("missing capture");
-
-                        builder.add_instr(get_var_ref_(it->second));
-                        builder.add_instr(put_loc_(insn.slots_out[0]));
-                        break;
-                    }
-
-                    // todo: this is probably wrong, since the function can be a result of opt ad therefore undefined,
-                    // we should check if the function is undefined to prevent runtime crashes
-                    case resolved_insn::kind_t::fn_call: {
-                        const uint16_t argc = static_cast<uint16_t>(insn.slots_in.size() - 1);
-                        builder.add_instr(get_loc_(insn.slots_in[0]));
-                        for (size_t i = 1; i < insn.slots_in.size(); ++i)
-                            builder.add_instr(get_loc_(insn.slots_in[i]));
-
-                        builder.add_instr(call_(argc));
-                        builder.add_instr(put_loc_(insn.slots_out[0]));
-                        break;
-                    }
-
-                    case resolved_insn::kind_t::fn_opt: {
-                        emit_fn_opt(insn);
-                        break;
-                    }
-
-                    case resolved_insn::kind_t::fn_join: {
-                        emit_fn_join(insn);
-                        break;
-                    }
-                }
+                emit_insn(fn.id, insn, insn_uid);
             }
 
             // epilogue
@@ -178,10 +181,126 @@ namespace qthu::ct2qjs {
             }
         }
 
+        void gen_trampoline_fn(const fn_meta &d, const trampoline_t &tr) {
+            using namespace qthu::as;
+            const fn_meta &c = ir.fns[tr.continue_id];
+
+            const uint32_t fn_bc_idx = 1 + d.id;
+            ensure_patch(fn_bc_idx);
+
+            std::set<uint32_t> captures;
+            for (size_t i = 0; i < d.body.size(); ++i) {
+                if (i == tr.continue_ref_idx || i == tr.frame_ref_idx)
+                    continue;
+                if (d.body[i].kind == resolved_insn::kind_t::fn_ref)
+                    captures.insert(d.body[i].target_fn_id);
+            }
+            for (size_t i = 0; i < c.body.size(); ++i) {
+                if (i == tr.continue_tail_idx || i == tr.continue_self_ref_idx)
+                    continue;
+                if (c.body[i].kind == resolved_insn::kind_t::fn_ref)
+                    captures.insert(c.body[i].target_fn_id);
+            }
+
+            uint16_t closure_var_idx = 0;
+            for (uint32_t target_id: captures) {
+                bc::closure_var cv;
+                cv.var_name_atom = 0;
+                cv.var_idx = static_cast<int32_t>(target_id);
+                cv.closure_type = 0;
+                cv.is_const = false;
+                cv.is_lexical = false;
+                cv.var_kind = 0;
+                patches[fn_bc_idx].closure_vars.push_back(cv);
+                fn_capture_idx[d.id][target_id] = closure_var_idx++;
+            }
+
+            const uint16_t arg_count = static_cast<uint16_t>(d.in.size());
+            const uint32_t c_base = d.slot_size;
+            const uint16_t local_count = static_cast<uint16_t>(d.slot_size + c.slot_size);
+            const std::string fn_name = std::string(ir.st.name_of(d.key.stru)) + "::" +
+                                        std::string(ir.st.name_of(d.key.op));
+
+            builder.add_function(fn_name, arg_count, local_count, 256);
+            patches[fn_bc_idx].capture_all = true;
+
+            auto remap_c = [&](uint32_t s) { return c_base + s; };
+
+            for (uint16_t a = 0; a < arg_count; ++a) {
+                builder.add_instr(get_arg_(a));
+                builder.add_instr(put_loc_(static_cast<int32_t>(d.in_param_slots[a])));
+            }
+
+            const std::string entry_label = make_label();
+            const std::string continue_label = make_label();
+            builder.add_label(entry_label);
+
+            uint32_t insn_uid = 0;
+            for (size_t i = 0; i < d.lowered.size(); ++i) {
+                if (i == tr.continue_ref_idx || i == tr.frame_ref_idx ||
+                    i == tr.opt_continue_idx || i == tr.opt_exit_idx ||
+                    i == tr.join_idx || i == tr.call_idx)
+                    continue;
+                ++insn_uid;
+                emit_insn(d.id, d.lowered[i], insn_uid);
+            }
+
+            const std::vector<uint32_t> &live_args = d.lowered[tr.call_idx].slots_in;
+
+            const uint32_t cond_slot = d.lowered[tr.opt_continue_idx].slots_in[0];
+            builder.add_instr(get_loc_(cond_slot));
+            builder.add_instr(if_true_(continue_label));
+
+            // exit path: an ordinary call, once per loop.
+            const uint32_t exit_ref_slot = d.lowered[tr.exit_ref_idx].slots_out[0];
+            std::vector<uint32_t> exit_in{exit_ref_slot};
+            for (size_t i = 1; i < live_args.size(); ++i)
+                exit_in.push_back(live_args[i]);
+            lowered_insn exit_call{
+                .resolved = {.kind = resolved_insn::kind_t::fn_call},
+                .slots_in = std::move(exit_in),
+                .slots_out = {d.out_param_slots.at(0)},
+            };
+            ++insn_uid;
+            emit_insn(d.id, exit_call, insn_uid);
+            builder.add_instr(get_loc_(d.out_param_slots.at(0)));
+            builder.add_instr(return_());
+
+            builder.add_label(continue_label);
+            for (size_t i = 0; i < c.in.size(); ++i) {
+                builder.add_instr(get_loc_(live_args[1 + i]));
+                builder.add_instr(put_loc_(remap_c(c.in_param_slots[i])));
+            }
+
+            for (size_t i = 0; i + 1 < c.lowered.size(); ++i) {
+                if (i == tr.continue_self_ref_idx)
+                    continue;
+                const lowered_insn &orig = c.lowered[i];
+                lowered_insn remapped{.resolved = orig.resolved};
+                for (uint32_t s: orig.slots_in)
+                    remapped.slots_in.push_back(remap_c(s));
+                for (uint32_t s: orig.slots_out)
+                    remapped.slots_out.push_back(remap_c(s));
+                ++insn_uid;
+                emit_insn(d.id, remapped, insn_uid);
+            }
+
+            const lowered_insn &tail = c.lowered.back();
+            for (size_t i = 1; i < tail.slots_in.size(); ++i) {
+                builder.add_instr(get_loc_(remap_c(tail.slots_in[i])));
+                builder.add_instr(put_loc_(d.in_param_slots[i - 1]));
+            }
+            builder.add_instr(goto_(entry_label));
+        }
+
         void gen_program() {
             fn_capture_idx.resize(ir.fns.size());
-            for (const auto &fn: ir.fns)
-                gen_fn(fn);
+            for (const auto &fn: ir.fns) {
+                if (auto it = ir.trampolines.find(fn.id); it != ir.trampolines.end())
+                    gen_trampoline_fn(fn, it->second);
+                else
+                    gen_fn(fn);
+            }
         }
 
         static void fill_captured_locals(bc::function_bytecode &f) {

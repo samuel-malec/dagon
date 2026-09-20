@@ -48,6 +48,19 @@ namespace qthu::ct2qjs {
         std::vector<uint32_t> slots_out;
     };
 
+    struct trampoline_t {
+        uint32_t continue_id = 0;
+        uint32_t exit_ref_idx = 0;
+        uint32_t continue_ref_idx = 0;
+        uint32_t frame_ref_idx = 0;
+        uint32_t opt_continue_idx = 0;
+        uint32_t opt_exit_idx = 0;
+        uint32_t join_idx = 0;
+        uint32_t call_idx = 0;
+        uint32_t continue_tail_idx = 0;
+        uint32_t continue_self_ref_idx = 0;
+    };
+
     struct fn_meta {
         uint32_t id = 0;
         insn_key key{};
@@ -67,6 +80,7 @@ namespace qthu::ct2qjs {
         std::vector<fn_meta> fns{};
         std::map<insn_key, uint32_t> key_fn{};
         std::map<insn_key, atom> builtins{};
+        std::map<uint32_t, trampoline_t> trampolines{};
 
         void collect_fns() {
             for (const auto &[struct_atom, structure]: st.structures) {
@@ -252,10 +266,138 @@ namespace qthu::ct2qjs {
             }
         }
 
+        // Index of the instruction in `body` whose sole/first output atom is `a`
+        // (every kind we search for here -- fn_ref/fn_opt/fn_join -- has exactly
+        // one output). Atoms are single-assignment within one function body (every
+        // name `structure_builder` emits is fresh), so this is unambiguous.
+        static std::optional<size_t> find_producer(const std::vector<resolved_insn> &body, atom a) {
+            for (size_t i = 0; i < body.size(); ++i)
+                if (!body[i].out.empty() && body[i].out[0] == a)
+                    return i;
+            return std::nullopt;
+        }
+
+        struct continue_match {
+            size_t tail_idx; // g's final fn_call -- eliminated (becomes the loop-back)
+            size_t self_ref_idx; // the fn_ref feeding it -- also eliminated (never called)
+        };
+
+        // Does `g` unconditionally tail-call back into `dispatcher_id` -- i.e. is
+        // `g` a valid "continue" branch for that dispatcher?
+        static std::optional<continue_match> continue_shape(const fn_meta &g, uint32_t dispatcher_id,
+                                                            size_t dispatcher_argc) {
+            if (g.out.size() != 1 || g.body.empty() || g.in.size() != dispatcher_argc)
+                return std::nullopt;
+
+            const resolved_insn &tail = g.body.back();
+            if (tail.kind != resolved_insn::kind_t::fn_call)
+                return std::nullopt;
+            if (tail.out.empty() || tail.out[0] != g.out[0])
+                return std::nullopt;
+            if (tail.in.empty() || tail.in.size() - 1 != dispatcher_argc)
+                return std::nullopt;
+
+            auto ref_pos = find_producer(g.body, tail.in[0]);
+            if (!ref_pos || g.body[*ref_pos].kind != resolved_insn::kind_t::fn_ref)
+                return std::nullopt;
+            if (g.body[*ref_pos].target_fn_id != dispatcher_id)
+                return std::nullopt;
+
+            return continue_match{g.body.size() - 1, *ref_pos};
+        }
+
+        void find_trampolines() {
+            for (auto &meta: fns) {
+                if (meta.out.size() != 1 || meta.body.empty())
+                    continue;
+
+                const resolved_insn &call_insn = meta.body.back();
+                if (call_insn.kind != resolved_insn::kind_t::fn_call)
+                    continue;
+                if (call_insn.out.empty() || call_insn.out[0] != meta.out[0])
+                    continue;
+                if (call_insn.in.empty() || call_insn.in.size() - 1 != meta.in.size())
+                    continue;
+
+                auto join_pos = find_producer(meta.body, call_insn.in[0]);
+                if (!join_pos || meta.body[*join_pos].kind != resolved_insn::kind_t::fn_join)
+                    continue;
+                const resolved_insn &join_insn = meta.body[*join_pos];
+                if (join_insn.in.size() < 3)
+                    continue;
+
+                auto opt1_pos = find_producer(meta.body, join_insn.in[0]);
+                auto opt2_pos = find_producer(meta.body, join_insn.in[1]);
+                if (!opt1_pos || !opt2_pos)
+                    continue;
+                if (meta.body[*opt1_pos].kind != resolved_insn::kind_t::fn_opt)
+                    continue;
+                if (meta.body[*opt2_pos].kind != resolved_insn::kind_t::fn_opt)
+                    continue;
+                const resolved_insn &opt1 = meta.body[*opt1_pos];
+                const resolved_insn &opt2 = meta.body[*opt2_pos];
+                if (opt1.in.size() < 2 || opt2.in.size() < 2)
+                    continue;
+
+                auto ref1_pos = find_producer(meta.body, opt1.in[1]);
+                auto ref2_pos = find_producer(meta.body, opt2.in[1]);
+                if (!ref1_pos || !ref2_pos)
+                    continue;
+                if (meta.body[*ref1_pos].kind != resolved_insn::kind_t::fn_ref)
+                    continue;
+                if (meta.body[*ref2_pos].kind != resolved_insn::kind_t::fn_ref)
+                    continue;
+
+                auto frame_pos = find_producer(meta.body, join_insn.in[2]);
+                if (!frame_pos || meta.body[*frame_pos].kind != resolved_insn::kind_t::fn_ref)
+                    continue;
+
+                const uint32_t target1 = meta.body[*ref1_pos].target_fn_id;
+                const uint32_t target2 = meta.body[*ref2_pos].target_fn_id;
+                if (target1 >= fns.size() || target2 >= fns.size())
+                    continue;
+
+                auto tail1 = continue_shape(fns[target1], meta.id, meta.in.size());
+                auto tail2 = continue_shape(fns[target2], meta.id, meta.in.size());
+                if (tail1.has_value() == tail2.has_value())
+                    continue; // need exactly one match -- ambiguous or neither
+
+                const uint32_t continue_id = tail1 ? target1 : target2;
+                const size_t continue_tail_idx = tail1 ? tail1->tail_idx : tail2->tail_idx;
+                const size_t continue_self_ref_idx = tail1 ? tail1->self_ref_idx : tail2->self_ref_idx;
+                const size_t continue_ref_idx = tail1 ? *ref1_pos : *ref2_pos;
+                const size_t opt_continue_idx = tail1 ? *opt1_pos : *opt2_pos;
+                const size_t exit_ref_idx = tail1 ? *ref2_pos : *ref1_pos;
+                const size_t opt_exit_idx = tail1 ? *opt2_pos : *opt1_pos;
+
+                size_t referrers = 0;
+                for (auto &other: fns)
+                    for (auto &insn: other.body)
+                        if (insn.kind == resolved_insn::kind_t::fn_ref && insn.target_fn_id == continue_id)
+                            ++referrers;
+                if (referrers != 1)
+                    continue;
+
+                trampolines[meta.id] = trampoline_t{
+                    .continue_id = continue_id,
+                    .exit_ref_idx = static_cast<uint32_t>(exit_ref_idx),
+                    .continue_ref_idx = static_cast<uint32_t>(continue_ref_idx),
+                    .frame_ref_idx = static_cast<uint32_t>(*frame_pos),
+                    .opt_continue_idx = static_cast<uint32_t>(opt_continue_idx),
+                    .opt_exit_idx = static_cast<uint32_t>(opt_exit_idx),
+                    .join_idx = static_cast<uint32_t>(*join_pos),
+                    .call_idx = static_cast<uint32_t>(meta.body.size() - 1),
+                    .continue_tail_idx = static_cast<uint32_t>(continue_tail_idx),
+                    .continue_self_ref_idx = static_cast<uint32_t>(continue_self_ref_idx),
+                };
+            }
+        }
+
         void lower_to_ir() {
             collect_fns();
             collect_builtins();
             resolve_instructions();
+            find_trampolines();
             alloc_slots();
         }
 
@@ -265,19 +407,19 @@ namespace qthu::ct2qjs {
                 for (auto &l: fn.lowered) {
                     std::cout << "      ";
                     switch (l.resolved.kind) {
-                        case ct2qjs::resolved_insn::kind_t::builtin:
+                        case resolved_insn::kind_t::builtin:
                             std::cout << "(builtin)";
                             break;
-                        case ct2qjs::resolved_insn::kind_t::fn_call:
+                        case resolved_insn::kind_t::fn_call:
                             std::cout << "(call)";
                             break;
-                        case ct2qjs::resolved_insn::kind_t::fn_join:
+                        case resolved_insn::kind_t::fn_join:
                             std::cout << "(join)";
                             break;
-                        case ct2qjs::resolved_insn::kind_t::fn_opt:
+                        case resolved_insn::kind_t::fn_opt:
                             std::cout << "(opt)";
                             break;
-                        case ct2qjs::resolved_insn::kind_t::fn_ref:
+                        case resolved_insn::kind_t::fn_ref:
                             std::cout << "(fn_ref)";
                             break;
                         default:
