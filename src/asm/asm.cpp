@@ -147,6 +147,8 @@ namespace qthu::as {
                 case item::label:
                     result += std::format("  {}:\n", item.name);
                     break;
+                case item::directive:
+                    break;
             }
         }
         return result;
