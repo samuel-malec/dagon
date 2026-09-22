@@ -56,10 +56,6 @@ namespace qthu::bc {
     struct program {
         std::vector<function_bytecode> functions;
 
-        // String literals referenced by qjs_val_cons_str (via push_atom_value).
-        // Serialized into the file-level atom table right after function names,
-        // so their runtime atom index is JS_ATOM_END + functions.size() + i --
-        // see codegen.hpp's register_atom for where that index is computed.
         std::vector<std::string> custom_atoms;
 
         static uint8_t pack_vardef_flags(const vardef &vd) {

@@ -182,9 +182,65 @@ namespace qthu::ct2qjs {
             }
         }
 
+        size_t sig_side_arity(const std::vector<atom> &side) const {
+            if (side.size() == 1 && st.name_of(side[0]) == "∅")
+                return 0;
+            return side.size();
+        }
+
+        std::optional<std::pair<size_t, size_t> > find_op_arity_in_signature(
+            atom sig_name, atom op, std::set<atom> &seen) {
+            if (!seen.insert(sig_name).second)
+                return std::nullopt;
+
+            auto it = st.signatures.find(sig_name);
+            if (it == st.signatures.end())
+                return std::nullopt;
+
+            if (auto dit = it->second.defs.find(op); dit != it->second.defs.end())
+                return std::pair{sig_side_arity(dit->second.in), sig_side_arity(dit->second.out)};
+
+            for (auto &[parent, parent_args]: it->second.inherits)
+                if (auto found = find_op_arity_in_signature(parent, op, seen))
+                    return found;
+
+            return std::nullopt;
+        }
+
+        std::optional<std::pair<size_t, size_t> > declared_arity(atom stru, atom op) {
+            auto sit = st.structures.find(stru);
+            if (sit == st.structures.end())
+                return std::nullopt;
+
+            for (auto &sig_inst: sit->second.signatures) {
+                std::set<atom> seen;
+                if (auto found = find_op_arity_in_signature(sig_inst.signature, op, seen))
+                    return found;
+            }
+
+            return std::nullopt;
+        }
+
+        void validate_arity(const insn_t &insn, size_t expected_in, size_t expected_out) {
+            if (insn.in.size() == expected_in && insn.out.size() == expected_out)
+                return;
+
+            throw std::runtime_error(
+                std::string(st.name_of(insn.structure)) + "::" + std::string(st.name_of(insn.operation)) +
+                ": expects " + std::to_string(expected_in) + " input(s) and " +
+                std::to_string(expected_out) + " output(s) per its declared signature, got " +
+                std::to_string(insn.in.size()) + " and " + std::to_string(insn.out.size()));
+        }
+
         resolved_insn classify(const insn_t &insn) {
             auto op_name = st.name_of(insn.operation);
-            if (op_name == "call")
+            if (op_name == "call") {
+                if (insn.in.empty() || insn.out.size() != 1)
+                    throw std::runtime_error(
+                        std::string(st.name_of(insn.structure)) + "::call: expects at least 1 input "
+                        "(the callee) and exactly 1 output, got " + std::to_string(insn.in.size()) +
+                        " and " + std::to_string(insn.out.size()));
+
                 return resolved_insn{
                     .kind = resolved_insn::kind_t::fn_call,
                     .structure = insn.structure,
@@ -193,8 +249,17 @@ namespace qthu::ct2qjs {
                     .in = insn.in,
                     .out = insn.out,
                 };
+            }
 
-            if (op_name == "opt")
+            if (op_name == "opt") {
+                // emit_fn_opt reads exactly slots_in[0] (cond) and slots_in[1]
+                // (the function value), writes exactly slots_out[0].
+                if (insn.in.size() != 2 || insn.out.size() != 1)
+                    throw std::runtime_error(
+                        std::string(st.name_of(insn.structure)) + "::opt: expects exactly 2 inputs "
+                        "(cond, fn ref) and 1 output, got " + std::to_string(insn.in.size()) +
+                        " and " + std::to_string(insn.out.size()));
+
                 return resolved_insn{
                     .kind = resolved_insn::kind_t::fn_opt,
                     .structure = insn.structure,
@@ -203,9 +268,15 @@ namespace qthu::ct2qjs {
                     .in = insn.in,
                     .out = insn.out,
                 };
+            }
 
-            // TODO: handle functions that are not defined in prelude.ct
-            if (op_name == "join" && st.name_of(insn.structure).starts_with("f"))
+            if (op_name == "join" && st.name_of(insn.structure).starts_with("f")) {
+                if (insn.in.size() < 2 || insn.out.size() != 1)
+                    throw std::runtime_error(
+                        std::string(st.name_of(insn.structure)) + "::join: expects at least 2 inputs "
+                        "(the two dispatch alternatives) and 1 output, got " + std::to_string(insn.in.size()) +
+                        " and " + std::to_string(insn.out.size()));
+
                 return resolved_insn{
                     .kind = resolved_insn::kind_t::fn_join,
                     .structure = insn.structure,
@@ -214,6 +285,7 @@ namespace qthu::ct2qjs {
                     .in = insn.in,
                     .out = insn.out,
                 };
+            }
 
             insn_key key{insn.structure, insn.operation};
 
@@ -226,6 +298,14 @@ namespace qthu::ct2qjs {
             }
 
             if (auto it = builtins.find(key); it != builtins.end()) {
+                // Every cons_<suffix> variant (cons_5, cons_true, cons_str_2, ...)
+                // shares the base `cons` op's declared arity -- there's no separate
+                // signature entry for each suffix, since the suffix isn't an
+                // operand, it's part of the opcode name.
+                atom sig_op = op_name.starts_with("cons_") ? st.get("cons") : insn.operation;
+                if (auto expected = declared_arity(insn.structure, sig_op))
+                    validate_arity(insn, expected->first, expected->second);
+
                 return resolved_insn{
                     resolved_insn::kind_t::builtin,
                     insn.structure,
@@ -238,6 +318,13 @@ namespace qthu::ct2qjs {
             }
 
             if (auto it = key_fn.find(key); it != key_fn.end()) {
+                // Referencing a declared function by name (`struct_name fn_name ->
+                // ref`) is a distinct thing from calling it: it always produces one
+                // first-class function value and never takes operands, regardless
+                // of the referenced function's own parameter count -- confirmed
+                // against emit_insn's fn_ref case, which reads no inputs at all.
+                validate_arity(insn, 0, 1);
+
                 return resolved_insn{
                     resolved_insn::kind_t::fn_ref,
                     insn.structure,

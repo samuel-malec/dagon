@@ -265,7 +265,6 @@ namespace qthu::js2ct::cthu {
 
                                    emit(curr_fn, fsig, "call", call_args, results);
                                },
-                               // todo: we should probably stop codegen of curr_fn after hitting return because everything that follows is dead code,
                                [ & ](lin::ret_data &r) {
                                    // what to do with functions that don't "return" anything ?
                                    if (r.arg)
@@ -346,7 +345,7 @@ namespace qthu::js2ct::cthu {
                                        extra.push_back(insn{struct_name, exit_name, {}, {exit_ref}});
                                        extra.push_back(insn{struct_name, frame_name, {}, {frame_ref}});
                                        extra.push_back(insn
-                                       {fsig, "opt", {cmp1, cont_ref}, {alt1}});
+                                           {fsig, "opt", {cmp1, cont_ref}, {alt1}});
                                        extra.push_back(insn{fsig, "opt", {cmp3, exit_ref}, {alt2}});
                                        extra.push_back(insn{fsig, "join", {alt1, alt2, frame_ref}, {joined}});
 
