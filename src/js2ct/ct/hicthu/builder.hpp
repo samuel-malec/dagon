@@ -128,6 +128,13 @@ namespace qthu::js2ct::cthu {
             return res;
         }
 
+        std::vector<std::string> move_into_fresh(function &fn, const std::vector<std::string> &names) {
+            std::vector<std::string> fresh = fresh_vals("mv", names.size());
+            for (size_t k = 0; k < names.size(); ++k)
+                emit(fn, "jsvalue", "move", {names[k]}, {fresh[k]});
+            return fresh;
+        }
+
         // The frame is the operand `join` falls back on when both alternatives
         // survive: it runs both and merges them result-by-result.
         function create_frame(const std::vector<std::string> &params, const std::string &fsig, size_t n_out) {
@@ -232,15 +239,21 @@ namespace qthu::js2ct::cthu {
 
                                    lower_fn(then_name, id.then_body);
                                    curr_struct->functions[then_name].in = params;
-                                   curr_struct->functions[then_name].out = id.exhaustively_returns
-                                                                               ? results
-                                                                               : vals2str(id.then_outputs);
+                                   if (id.exhaustively_returns)
+                                       curr_struct->functions[then_name].out = results;
+                                   else
+                                       curr_struct->functions[then_name].out =
+                                               move_into_fresh(curr_struct->functions[then_name],
+                                                                vals2str(id.then_outputs));
 
                                    lower_fn(else_name, id.else_body);
                                    curr_struct->functions[else_name].in = params;
-                                   curr_struct->functions[else_name].out = id.exhaustively_returns
-                                                                               ? results
-                                                                               : vals2str(id.else_outputs);
+                                   if (id.exhaustively_returns)
+                                       curr_struct->functions[else_name].out = results;
+                                   else
+                                       curr_struct->functions[else_name].out =
+                                               move_into_fresh(curr_struct->functions[else_name],
+                                                                vals2str(id.else_outputs));
 
                                    curr_struct->functions[frame_name] = create_frame(params, fsig, results.size());
 
@@ -297,12 +310,12 @@ namespace qthu::js2ct::cthu {
                                    std::string exit_name = fresh_val("loopexit");
                                    std::string frame_name = fresh_val("loopframe");
 
-                                   // exit branch: the live params are the loop's result, so they
-                                   // travel straight through with nothing to do.
+                                   // exit branch: the live params are the loop's result -- moved
+                                   // explicitly into fresh names rather than reused as-is.
                                    {
                                        function exit_fn{};
                                        exit_fn.in = params;
-                                       exit_fn.out = params;
+                                       exit_fn.out = move_into_fresh(exit_fn, params);
                                        curr_struct->functions[exit_name] = std::move(exit_fn);
                                    }
 
