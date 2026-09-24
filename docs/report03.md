@@ -21,4 +21,7 @@ Implementovali sme:
 - If príkazy
 - Cykly
 - Funkcie
-- Objekty, polia, reťazce 
+- Objekty, polia, reťazce
+
+Tail call optimalizacia
+
