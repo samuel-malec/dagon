@@ -267,7 +267,7 @@ namespace qthu::ct2qjs {
                 builder.add_instr(put_loc_(remap_c(loop_body_fn.in_param_slots[i])));
             }
 
-            for (size_t i = 0; i + 1 < loop_body_fn.lowered.size(); ++i) {
+            for (size_t i = 0; i < loop_data.continue_tail_idx; ++i) {
                 if (i == loop_data.continue_self_ref_idx)
                     continue;
                 const lowered_insn &orig = loop_body_fn.lowered[i];
@@ -280,7 +280,7 @@ namespace qthu::ct2qjs {
                 emit_insn(fn.id, remapped, insn_uid);
             }
 
-            const lowered_insn &tail = loop_body_fn.lowered.back();
+            const lowered_insn &tail = loop_body_fn.lowered[loop_data.continue_tail_idx];
             for (size_t i = 1; i < tail.slots_in.size(); ++i) {
                 builder.add_instr(get_loc_(remap_c(tail.slots_in[i])));
                 builder.add_instr(put_loc_(fn.in_param_slots[i - 1]));

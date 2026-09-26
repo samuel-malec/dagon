@@ -352,26 +352,47 @@ namespace qthu::ct2qjs {
             size_t self_ref_idx;
         };
 
-        static std::optional<continue_match> continue_shape(const fn_meta &g, uint32_t dispatcher_id,
-                                                            size_t dispatcher_argc) {
-            if (g.out.size() != 1 || g.body.empty() || g.in.size() != dispatcher_argc)
+        std::optional<continue_match> continue_shape(const fn_meta &fn, uint32_t dispatcher_id,
+                                                     size_t dispatcher_argc) {
+            if (fn.out.size() != 1 || fn.body.empty() || fn.in.size() != dispatcher_argc)
                 return std::nullopt;
 
-            const resolved_insn &tail = g.body.back();
-            if (tail.kind != resolved_insn::kind_t::fn_call)
-                return std::nullopt;
-            if (tail.out.empty() || tail.out[0] != g.out[0])
-                return std::nullopt;
-            if (tail.in.empty() || tail.in.size() - 1 != dispatcher_argc)
+            size_t tail_idx = fn.body.size() - 1;
+            while (tail_idx > 0 && fn.body[tail_idx].kind == resolved_insn::kind_t::builtin &&
+                   st.name_of(fn.body[tail_idx].operation) == "drop")
+                --tail_idx;
+
+            const resolved_insn *tail = &fn.body[tail_idx];
+            const bool writes_out_directly = tail->kind == resolved_insn::kind_t::fn_call &&
+                                             !tail->out.empty() && tail->out[0] == fn.out[0];
+
+            if (!writes_out_directly) {
+                const bool is_move_into_out = tail->kind == resolved_insn::kind_t::builtin &&
+                                              st.name_of(tail->operation) == "move" &&
+                                              tail->in.size() == 1 && tail->out.size() == 1 &&
+                                              tail->out[0] == fn.out[0];
+                if (!is_move_into_out || tail_idx == 0)
+                    return std::nullopt;
+
+                const resolved_insn &prev = fn.body[tail_idx - 1];
+                if (prev.kind != resolved_insn::kind_t::fn_call || prev.out.empty() ||
+                    prev.out[0] != tail->in[0])
+                    return std::nullopt;
+
+                --tail_idx;
+                tail = &fn.body[tail_idx];
+            }
+
+            if (tail->in.empty() || tail->in.size() - 1 != dispatcher_argc)
                 return std::nullopt;
 
-            auto ref_pos = find_producer(g.body, tail.in[0]);
-            if (!ref_pos || g.body[*ref_pos].kind != resolved_insn::kind_t::fn_ref)
+            auto ref_pos = find_producer(fn.body, tail->in[0]);
+            if (!ref_pos || fn.body[*ref_pos].kind != resolved_insn::kind_t::fn_ref)
                 return std::nullopt;
-            if (g.body[*ref_pos].target_fn_id != dispatcher_id)
+            if (fn.body[*ref_pos].target_fn_id != dispatcher_id)
                 return std::nullopt;
 
-            return continue_match{g.body.size() - 1, *ref_pos};
+            return continue_match{tail_idx, *ref_pos};
         }
 
         void find_loops() {
