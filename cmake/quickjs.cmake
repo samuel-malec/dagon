@@ -55,3 +55,31 @@ target_compile_definitions(qjsc PRIVATE
     CONFIG_VERSION=\"2025-09-13\"
     HAVE_CLOSEFROM
 )
+
+# Upstream's own JS runner/REPL -- lets a .js file be run directly
+# (`qjs --stack-size n file.js`) without going through js2ct/ct2qjs at all.
+# Useful for isolating whether an observed behavior comes from this
+# project's compilers or from QuickJS itself (e.g. tmp/tail_call_stack_experiment.sh).
+# qjs.c references a `qjsc_repl` byte array for its REPL mode; upstream
+# generates it by using qjsc (once built) to compile its own repl.js.
+set(QJS_REPL_C ${CMAKE_CURRENT_BINARY_DIR}/repl.c)
+
+add_custom_command(
+    OUTPUT ${QJS_REPL_C}
+    COMMAND qjsc -s -c -o ${QJS_REPL_C} -m ${quickjs_SOURCE_DIR}/repl.js
+    DEPENDS qjsc ${quickjs_SOURCE_DIR}/repl.js
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+add_executable(qjs
+    ${quickjs_SOURCE_DIR}/qjs.c
+    ${QJS_REPL_C}
+)
+
+target_link_libraries(qjs PRIVATE quickjs-libc)
+
+target_compile_definitions(qjs PRIVATE
+    _GNU_SOURCE
+    CONFIG_VERSION=\"2025-09-13\"
+    HAVE_CLOSEFROM
+)

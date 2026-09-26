@@ -46,23 +46,22 @@ namespace qthu::ct2qjs {
         builder.add_label(end_label);
     }
 
-    // TODO: we should probably have a precomputed map for these builtins...
     void codegen::emit_builtin(const lowered_insn &insn, uint32_t uid) {
-        auto get1 = [ & ](const lowered_insn &insn) {
+        auto get1 = [&](const lowered_insn &insn) {
             builder.add_instr(as::get_loc_(insn.slots_in[0]));
         };
 
-        auto get2 = [ & ](const lowered_insn &insn) {
+        auto get2 = [&](const lowered_insn &insn) {
             builder.add_instr(as::get_loc_(insn.slots_in[0]));
             builder.add_instr(as::get_loc_(insn.slots_in[1]));
         };
 
-        auto get_n = [ & ](const lowered_insn &insn, int n) {
+        auto get_n = [&](const lowered_insn &insn, int n) {
             for (int i = 0; i < n; ++i)
                 builder.add_instr(as::get_loc_(insn.slots_in[i]));
         };
 
-        auto binary_insn = [ & ](const lowered_insn &li, const as::instruction &asi) {
+        auto binary_insn = [&](const lowered_insn &li, const as::instruction &asi) {
             get2(insn);
             builder.add_instr(asi);
             builder.add_instr(as::put_loc_(insn.slots_out[0]));
@@ -93,8 +92,8 @@ namespace qthu::ct2qjs {
         }
 
         if (name == "qjs_val_push") {
-            builder.add_instr(as::get_loc_(insn.slots_in[0])); // survivor, returned as the new stack
-            builder.add_instr(as::get_loc_(insn.slots_in[0])); // consumed by get_length_
+            builder.add_instr(as::get_loc_(insn.slots_in[0]));
+            builder.add_instr(as::get_loc_(insn.slots_in[0]));
             builder.add_instr(as::get_length_());
             builder.add_instr(as::get_loc_(insn.slots_in[1]));
             builder.add_instr(as::put_array_el_());
@@ -118,12 +117,8 @@ namespace qthu::ct2qjs {
             builder.add_instr(as::sub_());
             builder.add_instr(as::get_loc_(insn.slots_in[0]));
             builder.add_instr(as::swap_());
-            builder.add_instr(as::put_field_(static_cast<int32_t>(js_atom_length)));
-            // stack: [ value ]  (put_field consumed obj+value, pushed nothing)
-
+            builder.add_instr(as::put_field_(js_atom_length));
             builder.add_instr(as::get_loc_(insn.slots_in[0]));
-            // stack: [ value, array ]
-
             builder.add_instr(as::put_loc_(insn.slots_out[1]));
             builder.add_instr(as::put_loc_(insn.slots_out[0]));
             return;
@@ -261,7 +256,9 @@ namespace qthu::ct2qjs {
         }
 
         if (name.starts_with("qjs_val_cons_")) {
-            size_t offset = 13; // length of 'qjs_val_cons_'
+            // std::string x = "qjs_val_cons_";
+            // size_t offset = x.length();
+            size_t offset = 13;
             auto suffix = name.substr(offset);
 
             if (suffix == "true") {

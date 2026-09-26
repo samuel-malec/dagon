@@ -158,9 +158,7 @@ namespace qthu::js2ct::lin {
                                       for (auto &[key, val_id]: ol.props) {
                                           value key_val = vn.fresh();
                                           sink.push_back(instr{str_cons_data{std::string(key), key_val}});
-
                                           argument val = lower_expr(sink, env, val_id);
-
                                           value next_obj = vn.fresh();
                                           sink.push_back(instr{set_data{obj, key_val, val, next_obj}});
                                           obj = next_obj;
@@ -205,12 +203,9 @@ namespace qthu::js2ct::lin {
                               }, node.data);
         }
 
-        // a && b  ==  let tmp = a; if (truthy(tmp)) { tmp = b; }  tmp
-        // a || b  ==  let tmp = a; if (truthy(tmp)) { /* keep */ } else { tmp = b; }  tmp
         argument lower_short_circuit(std::vector<instr> &sink, rename_env &env, op_kind op,
                                      hir::expr_id left_id, hir::expr_id right_id) {
             argument left_val = lower_expr(sink, env, left_id);
-
             value cond_copy = vn.fresh();
             value tmp_copy = vn.fresh();
             sink.push_back(instr{dup_data{.arg1 = left_val, .first = cond_copy, .second = tmp_copy}});
@@ -293,10 +288,6 @@ namespace qthu::js2ct::lin {
                            [ & ](const hir::stmt::block &b) {
                                for (auto sub: b.stmts) {
                                    lower_stmt(sink, env, sub);
-
-                                   // Anything after a statement that always returns is
-                                   // unreachable, and lowering it would reference values
-                                   // the return path already consumed.
                                    if (!sink.empty() && instr_always_returns(sink.back()))
                                        break;
                                }
@@ -360,8 +351,6 @@ namespace qthu::js2ct::lin {
                                        }
                                    });
 
-                                   // The dispatch call above took the whole scope
-                                   // as its arguments.
                                    env.consumed = true;
                                } else {
                                    std::vector<value> then_outputs{};
@@ -404,7 +393,6 @@ namespace qthu::js2ct::lin {
                                std::vector<instr> cond_body;
                                argument condarg = lower_expr(cond_body, cond_env, st.cond);
 
-
                                std::vector<value> dispatch_args{};
                                for (auto &bid: live_bindings)
                                    dispatch_args.push_back(cond_env.at(bid));
@@ -436,14 +424,14 @@ namespace qthu::js2ct::lin {
                                    }
                                });
                            },
-                           [ & ](const hir::stmt::assert_stmt &as) {
+                           [&](const hir::stmt::assert_stmt &as) {
                                argument arg = lower_expr(sink, env, as.arg);
                                sink.push_back(instr{assert_data{arg}});
                            },
-                           [ & ](const hir::stmt::brk &) {
+                           [&](const hir::stmt::brk &) {
                                error("'break' is not supported yet");
                            },
-                           [ & ](const hir::stmt::cont &) {
+                           [&](const hir::stmt::cont &) {
                                error("'continue' is not supported yet");
                            },
                        }, node.data);

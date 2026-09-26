@@ -48,7 +48,7 @@ namespace qthu::ct2qjs {
         std::vector<uint32_t> slots_out;
     };
 
-    struct trampoline_t {
+    struct loop_t {
         uint32_t continue_id = 0;
         uint32_t exit_ref_idx = 0;
         uint32_t continue_ref_idx = 0;
@@ -80,7 +80,7 @@ namespace qthu::ct2qjs {
         std::vector<fn_meta> fns{};
         std::map<insn_key, uint32_t> key_fn{};
         std::map<insn_key, atom> builtins{};
-        std::map<uint32_t, trampoline_t> trampolines{};
+        std::map<uint32_t, loop_t> loops{};
 
         void collect_fns() {
             for (const auto &[struct_atom, structure]: st.structures) {
@@ -252,8 +252,6 @@ namespace qthu::ct2qjs {
             }
 
             if (op_name == "opt") {
-                // emit_fn_opt reads exactly slots_in[0] (cond) and slots_in[1]
-                // (the function value), writes exactly slots_out[0].
                 if (insn.in.size() != 2 || insn.out.size() != 1)
                     throw std::runtime_error(
                         std::string(st.name_of(insn.structure)) + "::opt: expects exactly 2 inputs "
@@ -289,7 +287,6 @@ namespace qthu::ct2qjs {
 
             insn_key key{insn.structure, insn.operation};
 
-            // add cons_ on demand
             if (op_name.starts_with("cons_") && st.name_of(insn.structure) == "jsvalue") {
                 std::string builtin_name = "qjs_val_";
                 builtin_name += st.name_of(key.op);
@@ -298,10 +295,6 @@ namespace qthu::ct2qjs {
             }
 
             if (auto it = builtins.find(key); it != builtins.end()) {
-                // Every cons_<suffix> variant (cons_5, cons_true, cons_str_2, ...)
-                // shares the base `cons` op's declared arity -- there's no separate
-                // signature entry for each suffix, since the suffix isn't an
-                // operand, it's part of the opcode name.
                 atom sig_op = op_name.starts_with("cons_") ? st.get("cons") : insn.operation;
                 if (auto expected = declared_arity(insn.structure, sig_op))
                     validate_arity(insn, expected->first, expected->second);
@@ -318,13 +311,7 @@ namespace qthu::ct2qjs {
             }
 
             if (auto it = key_fn.find(key); it != key_fn.end()) {
-                // Referencing a declared function by name (`struct_name fn_name ->
-                // ref`) is a distinct thing from calling it: it always produces one
-                // first-class function value and never takes operands, regardless
-                // of the referenced function's own parameter count -- confirmed
-                // against emit_insn's fn_ref case, which reads no inputs at all.
                 validate_arity(insn, 0, 1);
-
                 return resolved_insn{
                     resolved_insn::kind_t::fn_ref,
                     insn.structure,
@@ -353,10 +340,6 @@ namespace qthu::ct2qjs {
             }
         }
 
-        // Index of the instruction in `body` whose sole/first output atom is `a`
-        // (every kind we search for here -- fn_ref/fn_opt/fn_join -- has exactly
-        // one output). Atoms are single-assignment within one function body (every
-        // name `structure_builder` emits is fresh), so this is unambiguous.
         static std::optional<size_t> find_producer(const std::vector<resolved_insn> &body, atom a) {
             for (size_t i = 0; i < body.size(); ++i)
                 if (!body[i].out.empty() && body[i].out[0] == a)
@@ -365,12 +348,10 @@ namespace qthu::ct2qjs {
         }
 
         struct continue_match {
-            size_t tail_idx; // g's final fn_call -- eliminated (becomes the loop-back)
-            size_t self_ref_idx; // the fn_ref feeding it -- also eliminated (never called)
+            size_t tail_idx;
+            size_t self_ref_idx;
         };
 
-        // Does `g` unconditionally tail-call back into `dispatcher_id` -- i.e. is
-        // `g` a valid "continue" branch for that dispatcher?
         static std::optional<continue_match> continue_shape(const fn_meta &g, uint32_t dispatcher_id,
                                                             size_t dispatcher_argc) {
             if (g.out.size() != 1 || g.body.empty() || g.in.size() != dispatcher_argc)
@@ -393,7 +374,7 @@ namespace qthu::ct2qjs {
             return continue_match{g.body.size() - 1, *ref_pos};
         }
 
-        void find_trampolines() {
+        void find_loops() {
             for (auto &meta: fns) {
                 if (meta.out.size() != 1 || meta.body.empty())
                     continue;
@@ -447,7 +428,7 @@ namespace qthu::ct2qjs {
                 auto tail1 = continue_shape(fns[target1], meta.id, meta.in.size());
                 auto tail2 = continue_shape(fns[target2], meta.id, meta.in.size());
                 if (tail1.has_value() == tail2.has_value())
-                    continue; // need exactly one match -- ambiguous or neither
+                    continue;
 
                 const uint32_t continue_id = tail1 ? target1 : target2;
                 const size_t continue_tail_idx = tail1 ? tail1->tail_idx : tail2->tail_idx;
@@ -465,7 +446,7 @@ namespace qthu::ct2qjs {
                 if (referrers != 1)
                     continue;
 
-                trampolines[meta.id] = trampoline_t{
+                loops[meta.id] = loop_t{
                     .continue_id = continue_id,
                     .exit_ref_idx = static_cast<uint32_t>(exit_ref_idx),
                     .continue_ref_idx = static_cast<uint32_t>(continue_ref_idx),
@@ -484,7 +465,7 @@ namespace qthu::ct2qjs {
             collect_fns();
             collect_builtins();
             resolve_instructions();
-            find_trampolines();
+            find_loops();
             alloc_slots();
         }
 

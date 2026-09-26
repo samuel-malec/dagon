@@ -15,7 +15,7 @@ namespace qthu::js2ct::cthu {
         std::string struct_name;
         lin::function &fn;
         sema::analysis_result &sema;
-        std::vector<std::string> &strings; // shared module-wide string-constant pool
+        std::vector<std::string> &strings;
         structure *curr_struct = nullptr;
         uint32_t next_val = 1;
 
@@ -111,8 +111,6 @@ namespace qthu::js2ct::cthu {
             return std::string(1, c) + std::to_string(k);
         }
 
-        // f_<inputs>_<outputs>, e.g. f_j3_j2 takes three jsvalues and returns two.
-        // locthu collapses every one of these to a single-output signature.
         std::string call_signature_name(size_t n_in, size_t n_out) {
             return "f_" + compact_run('j', n_in) + "_" + compact_run('j', n_out);
         }
@@ -229,9 +227,6 @@ namespace qthu::js2ct::cthu {
                                    std::vector<std::string> params = vals2str(id.params);
                                    std::vector<std::string> outs = vals2str(id.outputs);
 
-                                   // An exhaustive if returns out of the enclosing function, so both
-                                   // branches hand back the single `out` value; otherwise each branch
-                                   // hands back the bindings the if is live in.
                                    std::vector<std::string> results = id.exhaustively_returns
                                                                           ? std::vector<std::string>{"out"}
                                                                           : outs;
@@ -244,7 +239,7 @@ namespace qthu::js2ct::cthu {
                                    else
                                        curr_struct->functions[then_name].out =
                                                move_into_fresh(curr_struct->functions[then_name],
-                                                                vals2str(id.then_outputs));
+                                                               vals2str(id.then_outputs));
 
                                    lower_fn(else_name, id.else_body);
                                    curr_struct->functions[else_name].in = params;
@@ -253,7 +248,7 @@ namespace qthu::js2ct::cthu {
                                    else
                                        curr_struct->functions[else_name].out =
                                                move_into_fresh(curr_struct->functions[else_name],
-                                                                vals2str(id.else_outputs));
+                                                               vals2str(id.else_outputs));
 
                                    curr_struct->functions[frame_name] = create_frame(params, fsig, results.size());
 
@@ -279,7 +274,6 @@ namespace qthu::js2ct::cthu {
                                    emit(curr_fn, fsig, "call", call_args, results);
                                },
                                [ & ](lin::ret_data &r) {
-                                   // what to do with functions that don't "return" anything ?
                                    if (r.arg)
                                        emit(curr_fn, "jsvalue", "move", args2str({r.arg.value()}), {"out"});
                                },
@@ -292,7 +286,7 @@ namespace qthu::js2ct::cthu {
                                    emit(curr_fn, callee_struct, "run", {}, {f_ref});
 
                                    std::string fsig = call_signature_name(c.args.size(), 1);
-                                   std::vector<std::string> call_args{f_ref};
+                                   std::vector call_args{f_ref};
                                    for (auto &a: args2str(c.args))
                                        call_args.push_back(std::move(a));
 
@@ -301,8 +295,6 @@ namespace qthu::js2ct::cthu {
                                [ & ](lin::loop_data &ld) {
                                    std::vector<std::string> params = vals2str(ld.params);
                                    std::vector<std::string> outs = vals2str(ld.outputs);
-
-                                   // A loop hands back exactly the bindings it carries.
                                    std::string fsig = call_signature_name(params.size(), params.size());
 
                                    std::string loop_name = fresh_val("loop");
@@ -310,8 +302,6 @@ namespace qthu::js2ct::cthu {
                                    std::string exit_name = fresh_val("loopexit");
                                    std::string frame_name = fresh_val("loopframe");
 
-                                   // exit branch: the live params are the loop's result -- moved
-                                   // explicitly into fresh names rather than reused as-is.
                                    {
                                        function exit_fn{};
                                        exit_fn.in = params;
@@ -319,8 +309,6 @@ namespace qthu::js2ct::cthu {
                                        curr_struct->functions[exit_name] = std::move(exit_fn);
                                    }
 
-                                   // continue branch: run one iteration of the body, then tail-recurse
-                                   // into loop_name (self-reference by name) with the updated values.
                                    {
                                        std::string self_ref = fresh_val("self");
                                        std::vector rec_args{self_ref};
@@ -339,14 +327,11 @@ namespace qthu::js2ct::cthu {
 
                                    curr_struct->functions[frame_name] = create_frame(params, fsig, params.size());
 
-                                   // loop_name: the self-recursive dispatcher. Re-runs cond_body and
-                                   // the opt/join/call dispatch on *every* call, initial or recursive.
                                    {
                                        std::string cmp1 = fresh_val("cmp"), cmp2 = fresh_val("cmp"), cmp3 = fresh_val(
                                            "cmp");
                                        std::string cont_ref = fresh_val("ref"), exit_ref = fresh_val("ref"), frame_ref =
-                                               fresh_val(
-                                                   "ref");
+                                               fresh_val("ref");
                                        std::string alt1 = fresh_val("alt"), alt2 = fresh_val("alt"), joined = fresh_val(
                                            "cont");
                                        std::vector<std::string> loop_outs = fresh_vals("lp", params.size());
@@ -366,15 +351,11 @@ namespace qthu::js2ct::cthu {
                                        for (auto &p: vals2str(ld.dispatch_args))
                                            call_args.push_back(p);
                                        extra.push_back(insn{fsig, "call", call_args, loop_outs});
-
                                        lower_fn(loop_name, ld.cond_body, extra);
                                        curr_struct->functions[loop_name].in = params;
                                        curr_struct->functions[loop_name].out = loop_outs;
                                    }
 
-                                   // back in the enclosing function: reference loop_name and call it
-                                   // with the current live params -- the bindings the rest of the
-                                   // function expects come straight back out of the call.
                                    std::string loop_ref = fresh_val("ref");
                                    emit(curr_fn, struct_name, loop_name, {}, {loop_ref});
                                    std::vector outer_call_args{loop_ref};
