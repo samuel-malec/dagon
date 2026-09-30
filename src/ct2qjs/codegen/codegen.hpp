@@ -179,21 +179,21 @@ namespace qthu::ct2qjs {
             }
         }
 
-        void gen_tail_fn(const fn_meta &fn, const loop_t &loop_data) {
+        void gen_tail_fn(const fn_meta &fn, const trampoline_t &trampoline) {
             using namespace qthu::as;
-            const fn_meta &loop_body_fn = ir.fns[loop_data.continue_id];
+            const fn_meta &loop_body_fn = ir.fns[trampoline.continue_id];
             const uint32_t fn_bc_idx = fn.id + 1;
             ensure_patch(fn_bc_idx);
 
             std::set<uint32_t> captures;
             for (size_t i = 0; i < fn.body.size(); ++i) {
-                if (i == loop_data.continue_ref_idx || i == loop_data.frame_ref_idx)
+                if (i == trampoline.continue_ref_idx || i == trampoline.frame_ref_idx)
                     continue;
                 if (fn.body[i].kind == resolved_insn::kind_t::fn_ref)
                     captures.insert(fn.body[i].target_fn_id);
             }
             for (size_t i = 0; i < loop_body_fn.body.size(); ++i) {
-                if (i == loop_data.continue_tail_idx || i == loop_data.continue_self_ref_idx)
+                if (i == trampoline.continue_tail_idx || i == trampoline.continue_self_ref_idx)
                     continue;
                 if (loop_body_fn.body[i].kind == resolved_insn::kind_t::fn_ref)
                     captures.insert(loop_body_fn.body[i].target_fn_id);
@@ -233,21 +233,21 @@ namespace qthu::ct2qjs {
 
             uint32_t insn_uid = 0;
             for (size_t i = 0; i < fn.lowered.size(); ++i) {
-                if (i == loop_data.continue_ref_idx || i == loop_data.frame_ref_idx ||
-                    i == loop_data.opt_continue_idx || i == loop_data.opt_exit_idx ||
-                    i == loop_data.join_idx || i == loop_data.call_idx)
+                if (i == trampoline.continue_ref_idx || i == trampoline.frame_ref_idx ||
+                    i == trampoline.opt_continue_idx || i == trampoline.opt_exit_idx ||
+                    i == trampoline.join_idx || i == trampoline.call_idx)
                     continue;
                 ++insn_uid;
                 emit_insn(fn.id, fn.lowered[i], insn_uid);
             }
 
-            const std::vector<uint32_t> &live_args = fn.lowered[loop_data.call_idx].slots_in;
+            const std::vector<uint32_t> &live_args = fn.lowered[trampoline.call_idx].slots_in;
 
-            const uint32_t cond_slot = fn.lowered[loop_data.opt_continue_idx].slots_in[0];
+            const uint32_t cond_slot = fn.lowered[trampoline.opt_continue_idx].slots_in[0];
             builder.add_instr(get_loc_(cond_slot));
             builder.add_instr(if_true_(continue_label));
 
-            const uint32_t exit_ref_slot = fn.lowered[loop_data.exit_ref_idx].slots_out[0];
+            const uint32_t exit_ref_slot = fn.lowered[trampoline.exit_ref_idx].slots_out[0];
             std::vector<uint32_t> exit_in{exit_ref_slot};
             for (size_t i = 1; i < live_args.size(); ++i)
                 exit_in.push_back(live_args[i]);
@@ -267,8 +267,8 @@ namespace qthu::ct2qjs {
                 builder.add_instr(put_loc_(remap_c(loop_body_fn.in_param_slots[i])));
             }
 
-            for (size_t i = 0; i < loop_data.continue_tail_idx; ++i) {
-                if (i == loop_data.continue_self_ref_idx)
+            for (size_t i = 0; i < trampoline.continue_tail_idx; ++i) {
+                if (i == trampoline.continue_self_ref_idx)
                     continue;
                 const lowered_insn &orig = loop_body_fn.lowered[i];
                 lowered_insn remapped{.resolved = orig.resolved};
@@ -280,7 +280,7 @@ namespace qthu::ct2qjs {
                 emit_insn(fn.id, remapped, insn_uid);
             }
 
-            const lowered_insn &tail = loop_body_fn.lowered[loop_data.continue_tail_idx];
+            const lowered_insn &tail = loop_body_fn.lowered[trampoline.continue_tail_idx];
             for (size_t i = 1; i < tail.slots_in.size(); ++i) {
                 builder.add_instr(get_loc_(remap_c(tail.slots_in[i])));
                 builder.add_instr(put_loc_(fn.in_param_slots[i - 1]));
@@ -291,7 +291,7 @@ namespace qthu::ct2qjs {
         void gen_program() {
             fn_capture_idx.resize(ir.fns.size());
             for (const auto &fn: ir.fns) {
-                if (auto it = ir.loops.find(fn.id); it != ir.loops.end())
+                if (auto it = ir.trampolines.find(fn.id); it != ir.trampolines.end())
                     gen_tail_fn(fn, it->second);
                 else
                     gen_fn(fn);

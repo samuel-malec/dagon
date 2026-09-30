@@ -48,7 +48,7 @@ namespace qthu::ct2qjs {
         std::vector<uint32_t> slots_out;
     };
 
-    struct loop_t {
+    struct trampoline_t {
         uint32_t continue_id = 0;
         uint32_t exit_ref_idx = 0;
         uint32_t continue_ref_idx = 0;
@@ -80,7 +80,7 @@ namespace qthu::ct2qjs {
         std::vector<fn_meta> fns{};
         std::map<insn_key, uint32_t> key_fn{};
         std::map<insn_key, atom> builtins{};
-        std::map<uint32_t, loop_t> loops{};
+        std::map<uint32_t, trampoline_t> trampolines{};
 
         void collect_fns() {
             for (const auto &[struct_atom, structure]: st.structures) {
@@ -395,7 +395,7 @@ namespace qthu::ct2qjs {
             return continue_match{tail_idx, *ref_pos};
         }
 
-        void find_loops() {
+        void find_trampolines() {
             for (auto &meta: fns) {
                 if (meta.out.size() != 1 || meta.body.empty())
                     continue;
@@ -467,7 +467,7 @@ namespace qthu::ct2qjs {
                 if (referrers != 1)
                     continue;
 
-                loops[meta.id] = loop_t{
+                trampolines[meta.id] = trampoline_t{
                     .continue_id = continue_id,
                     .exit_ref_idx = static_cast<uint32_t>(exit_ref_idx),
                     .continue_ref_idx = static_cast<uint32_t>(continue_ref_idx),
@@ -486,7 +486,7 @@ namespace qthu::ct2qjs {
             collect_fns();
             collect_builtins();
             resolve_instructions();
-            find_loops();
+            find_trampolines();
             alloc_slots();
         }
 
