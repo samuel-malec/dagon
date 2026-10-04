@@ -49,8 +49,6 @@ structure jsvalue : arithmetic[ jsvalue, stck, bool ], bitwise[ jsvalue ]
     get      = qjs_val_get
     set      = qjs_val_set
 
-    ; a stack is a jsvalue array (cons_arr constructs an empty one); push/pop
-    ; are just get/set's append/remove-last siblings on the same representation
     push     = qjs_val_push
     pop      = qjs_val_pop
 
@@ -90,7 +88,6 @@ structure jsbool : simple[ jsbool, stck, bool ]
     opt  = qjs_jsbool_opt
 )
 
-; kept for backwards compat with hand-written fib.ct-style examples; not
 structure fᵢⁱ : f₁¹[ func, jsvalue, bool, jsvalue, jsvalue ]
 (
     call = qjs_func_call

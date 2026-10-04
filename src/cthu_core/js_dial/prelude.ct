@@ -39,10 +39,10 @@ signature arithmetic[ T, S, B ] : simple[ T, S, B ]
 (
     add ∷ T × T → T
     sub ∷ T × T → T
-    neg ∷ T → T ; unary '-'; distinct from 'sub' since it's arity-1, not arity-2
+    neg ∷ T → T
     mul ∷ T × T → T
     div ∷ T × T → T
-    rem ∷ T × T → T ; %
+    rem ∷ T × T → T
 
     eq? ∷ T × T → B
     ne? ∷ T × T → B ; !=
