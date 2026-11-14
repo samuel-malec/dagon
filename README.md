@@ -19,5 +19,3 @@ src/
 ├── cthu_core/   # Core definitions for the Cthulhu JavaScript dialect
 ├── js2ct/       # JavaScript → Cthulhu compiler
 ```
-
-> **Status:** Active development. Both compilers are currently under implementation.
