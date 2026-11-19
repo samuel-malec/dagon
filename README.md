@@ -7,21 +7,7 @@ Currently, two compilers are being implemented:
 - **js2ct** - compiles Javascript into Cthulhu
 - **ct2qjs** - lowers Cthulhu into QuickJS bytecode
 
-```text
-JavaScript
-     │
-     ▼
-    js2ct
-     │
-     ▼
-Cthulhu IR
-     │
-     ▼
-   ct2qjs
-     │
-     ▼
-QuickJS Bytecode
-```
+
 
 ## Repository Structure
 ```text
@@ -33,5 +19,3 @@ src/
 ├── cthu_core/   # Core definitions for the Cthulhu JavaScript dialect
 ├── js2ct/       # JavaScript → Cthulhu compiler
 ```
-
-> **Status:** Active development. Both compilers are currently under implementation.
