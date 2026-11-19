@@ -71,5 +71,5 @@ signature f₁¹[ F, S, B, I, O ] : simple[ F, S, B ]
 (
     call ∷ F × I → O
     opt  ∷ B × F → F
-    join ∷ F × F × F → F
+    join ∷ F × F × F → F ; TODO think about the frame type, which I think is wrong and should be something else than F...
 )
